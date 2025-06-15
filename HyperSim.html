@@ -3,25 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>p5.js Life Simulation</title>
+    <title>Rainforest Ecosystem Simulator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
-        html, body {
+        :root {
+            --dark-bg: #1a1a1a;
+            --medium-bg: #2a2a2a;
+            --light-bg: #333;
+            --text-color: #e0e0e0;
+            --accent-green: #28a745;
+            --accent-blue: #007bff;
+        }
+        html {
             height: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: #1a1a1a;
-            font-family: 'Arial', sans-serif;
-            color: #fff;
-            overflow: hidden;
         }
         body {
-            display: flex;
+            min-height: 100vh; /* Use min-height to allow content to expand */
+            margin: 0;
+            padding: 0;
+            background-color: var(--dark-bg);
+            font-family: 'Arial', sans-serif;
+            color: var(--text-color);
+            display: flex; /* Use flexbox for centering */
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            padding: 10px; /* Reduced padding */
+            padding: 20px; /* Add some padding for small screens */
             box-sizing: border-box;
+            overflow-y: auto; /* Enable vertical scrolling for the whole page */
         }
         main {
             display: flex;
@@ -29,671 +37,357 @@
             align-items: center;
             text-align: center;
             width: 100%;
-            max-width: 900px; /* Added max-width for large screens */
-            height: 100%;
+            max-width: 1000px;
         }
-        #canvas-container {
-            flex-shrink: 0; /* Prevent canvas from shrinking */
+        #canvas-container { 
+            flex-shrink: 0; 
+            width: 100%;
         }
         canvas {
             display: block;
             border: 1px solid #444;
             border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(40, 180, 99, 0.3);
             max-width: 100%;
+            height: auto; /* Adjust height automatically */
         }
         .controls {
-            background-color: #2a2a2a;
+            background-color: var(--medium-bg);
             padding: 15px;
             border-radius: 8px;
-            margin-top: 15px; /* Reduced margin */
+            margin-top: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px; /* Reduced gap */
+            gap: 15px;
             width: 100%;
-            max-width: 600px;
+            max-width: 800px;
             box-sizing: border-box;
-            overflow-y: auto; /* Allow scrolling on very small screens */
             flex-shrink: 0;
         }
         .info-display {
-            font-size: 1em;
-            color: #e0e0e0;
-            background-color: #333;
+            font-size: 0.9em;
+            color: var(--text-color);
+            background-color: var(--light-bg);
             padding: 10px 15px;
             border-radius: 6px;
             width: 95%;
             text-align: center;
+            min-height: 20px;
         }
-        label {
-            font-size: 1em;
-            color: #ccc;
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px 20px;
+            width: 100%;
+            max-width: 600px;
         }
-        input[type="range"], input[type="number"] {
-            background-color: #444;
-            border: 1px solid #666;
-            color: #fff;
-            border-radius: 4px;
-            padding: 5px;
+        .input-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
         }
-        input:disabled {
-            background-color: #333;
-            opacity: 0.5;
-            cursor: not-allowed;
+        label { font-size: 1em; color: #ccc; }
+        input[type="number"], input[type="range"] {
+            background-color: #444; border: 1px solid #666; color: #fff; border-radius: 4px; padding: 5px;
         }
+        input[type="number"] { width: 60px; }
         button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            min-width: 150px;
+            color: white; border: none; padding: 12px 25px; border-radius: 5px;
+            font-size: 1.1em; cursor: pointer; transition: background-color 0.3s;
         }
-        button:hover {
-            background-color: #0056b3;
-        }
-        button.stop-button {
-             background-color: #dc3545;
-        }
-        button.stop-button:hover {
-            background-color: #c82333;
-        }
-        .mode-switch, .duration-type-switch { display: flex; align-items: center; gap: 10px; }
+        #main-button { background-color: var(--accent-green); }
+        #main-button:hover { background-color: #218838; }
         .hidden { display: none; }
-        .input-group { display: flex; align-items: center; gap: 10px; }
+        .mode-switch { display: flex; gap: 10px; align-items: center; }
     </style>
 </head>
 <body>
     <main>
-        <h1>Advanced Life Simulation</h1>
+        <h1>Rainforest Ecosystem Simulator</h1>
         <div id="canvas-container"></div>
         <div class="controls">
-            <div class="info-display" id="info-display">Welcome! Select a mode to begin.</div>
+            <div class="info-display" id="info-display">Configure populations and press Start.</div>
+
             <div class="mode-switch">
                 <label>Normal Mode</label>
                 <input type="checkbox" id="mode-toggle">
                 <label>Hyper Mode</label>
             </div>
-            
-            <!-- Normal Mode Controls -->
-            <div id="normal-controls">
-                <label for="day-length-slider">Day Length: <span id="day-length-value">10</span>s</label>
-                <input type="range" id="day-length-slider" min="5" max="60" value="10">
+
+            <div class="settings-grid">
+                <div class="input-group"><label for="initial-trees">Trees:</label><input type="number" id="initial-trees" value="100" min="0"></div>
+                <div class="input-group"><label for="initial-butterflies">Butterflies:</label><input type="number" id="initial-butterflies" value="40" min="0"></div>
+                <div class="input-group"><label for="initial-frogs">Frogs:</label><input type="number" id="initial-frogs" value="15" min="0"></div>
+                <div class="input-group"><label for="initial-snakes">Snakes:</label><input type="number" id="initial-snakes" value="5" min="0"></div>
+                <div class="input-group"><label for="initial-hawks">Hawks:</label><input type="number" id="initial-hawks" value="2" min="0"></div>
             </div>
 
-            <!-- Hyper Mode Controls -->
+            <div id="normal-controls">
+                <label for="day-length-slider">Day Length: <span id="day-length-value">10</span>s</label>
+                <input type="range" id="day-length-slider" min="1" max="30" value="10">
+            </div>
             <div id="hyper-controls" class="hidden">
-                 <div class="duration-type-switch">
-                    <label>Duration:</label>
-                    <input type="radio" id="years-radio" name="duration-type" value="years" checked>
-                    <label for="years-radio">Years</label>
-                    <input type="radio" id="days-radio" name="duration-type" value="days">
-                    <label for="days-radio">Days</label>
-                 </div>
-                 <div class="input-group">
-                    <label for="years-input">Years:</label>
-                    <input type="number" id="years-input" value="10" min="1">
-                 </div>
-                 <div class="input-group">
-                    <label for="days-input">Days:</label>
-                    <input type="number" id="days-input" value="1000" min="1">
+                <div class="input-group">
+                    <label for="years-input">Simulate for:</label>
+                    <input type="number" id="years-input" value="10" min="1"> <span>Years</span>
                 </div>
             </div>
 
-            <button id="main-button">Restart</button>
-            <p style="margin: 0; color: #999;">Predators eat Boids. Boids eat Bugs.</p>
+            <button id="main-button">Start Simulation</button>
         </div>
     </main>
+
     <script>
-        // --- Simulation Core Variables ---
-        let boids = [];
-        let bugs = [];
-        let eggs = [];
-        let predators = [];
-        const initialBoids = 10;
-        const initialBugs = 200;
-        const initialPredators = 4;
-        const daysPerYear = 365;
-        const boidMaxAgeInDays = 15 * daysPerYear;
-        const predatorMaxAgeInDays = 10 * daysPerYear;
+    // --- QuadTree (Helper for Optimization) ---
+    class Point { constructor(x, y, userData) { this.x = x; this.y = y; this.userData = userData; } }
+    class Rectangle {
+        constructor(x, y, w, h) { this.x = x; this.y = y; this.w = w; this.h = h; }
+        contains(point) { return (point.x >= this.x - this.w && point.x <= this.x + this.w && point.y >= this.y - this.h && point.y <= this.y + this.h); }
+        intersects(range) { return !(range.x - range.w > this.x + this.w || range.x + range.w < this.x - this.w || range.y - range.h > this.y + this.h || range.y + range.h < this.y - this.h); }
+    }
+    class QuadTree {
+        constructor(boundary, capacity) { this.boundary = boundary; this.capacity = capacity; this.points = []; this.divided = false; }
+        subdivide() {
+            let { x, y, w, h } = this.boundary;
+            let hw = w / 2, hh = h / 2;
+            this.northeast = new QuadTree(new Rectangle(x + hw, y - hh, hw, hh), this.capacity); this.northwest = new QuadTree(new Rectangle(x - hw, y - hh, hw, hh), this.capacity);
+            this.southeast = new QuadTree(new Rectangle(x + hw, y + hh, hw, hh), this.capacity); this.southwest = new QuadTree(new Rectangle(x - hw, y + hh, hw, hh), this.capacity);
+            this.divided = true;
+        }
+        insert(point) {
+            if (!this.boundary.contains(point)) return false;
+            if (this.points.length < this.capacity) { this.points.push(point); return true; }
+            if (!this.divided) this.subdivide();
+            return this.northeast.insert(point) || this.northwest.insert(point) || this.southeast.insert(point) || this.southwest.insert(point);
+        }
+        query(range, found = []) {
+            if (!this.boundary.intersects(range)) return found;
+            for (let p of this.points) { if (range.contains(p)) found.push(p); }
+            if (this.divided) { this.northwest.query(range, found); this.northeast.query(range, found); this.southwest.query(range, found); this.southeast.query(range, found); }
+            return found;
+        }
+    }
 
-        // --- State Management ---
-        let simulationMode = 'normal';
-        let isSimulating = false;
-        let isSimComplete = false;
-        let isPaused = false;
-        let dayCounter = 1;
-        
-        // FIX: Re-declared missing global state variables
-        // --- Normal Mode Variables ---
-        let dayLengthMillis = 10000;
-        let dayStartTime = 0;
-        let pauseEndTime = 0;
-        
-        // --- Hyper Mode Variables ---
-        let hyperSimTotalDays = 0;
-        
-        // FIX: Declared all UI elements globally for consistent access
-        // --- UI Elements ---
-        let infoDisplay, modeToggle, mainButton, normalControls, hyperControls, dayLengthSlider, dayLengthValueSpan, yearsInput, daysInput, yearsRadio, daysRadio;
+    // --- BASE ANIMAL CLASS ---
+    class Animal {
+        constructor(x, y, gender) {
+            this.position = createVector(x, y); this.velocity = p5.Vector.random2D(); this.acceleration = createVector(); this.gender = gender; this.foodEaten = 0;
+        }
+        seek(target) { let desired = p5.Vector.sub(target.position, this.position); desired.setMag(this.maxSpeed); return p5.Vector.sub(desired, this.velocity).limit(this.maxForce); }
+        flee(target) { return this.seek(target).mult(-1.5); }
+        applyBehaviors(preyQT, predatorQT, mates) {
+             let searchArea = new Rectangle(this.position.x, this.position.y, this.searchRadius, this.searchRadius);
+             let predatorsNearby = predatorQT ? predatorQT.query(searchArea) : [];
+             if (predatorsNearby.length > 0) { this.acceleration.add(this.flee(predatorsNearby[0].userData)); }
+             else if (this.foodEaten > 0 && mates.length > 0) { this.acceleration.add(this.seek(mates[0])); }
+             else { let preyNearby = preyQT ? preyQT.query(searchArea) : []; if(preyNearby.length > 0) { this.acceleration.add(this.seek(preyNearby[0].userData)); } }
+        }
+        update() { this.velocity.add(this.acceleration); this.velocity.limit(this.maxSpeed); this.position.add(this.velocity); this.acceleration.mult(0); this.boundaries(); }
+        boundaries() { if (this.position.x < 0) this.position.x = width; if (this.position.x > width) this.position.x = 0; if (this.position.y < 0) this.position.y = height; if (this.position.y > height) this.position.y = 0; }
+    }
 
-        function setup() {
-            let canvas = createCanvas(windowWidth * 0.9, windowHeight * 0.55);
-            canvas.parent('canvas-container');
-            initializeUI();
+    // --- ECOSYSTEM SPECIES with NEW VISUALS ---
+    class Tree { constructor(x, y) { this.position = createVector(x,y); this.size=random(10,20); } display() { noStroke(); fill('green'); ellipse(this.position.x,this.position.y,this.size,this.size);}}
+    class Butterfly extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=2; this.maxForce=0.1; this.size=8; this.searchRadius=100; } display() { noStroke(); fill('pink'); ellipse(this.position.x, this.position.y, this.size, this.size); }}
+    class Frog extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=2.5; this.maxForce=0.2; this.size=12; this.searchRadius=120; } display() { noStroke(); fill('darkgreen'); ellipse(this.position.x, this.position.y, this.size, this.size); }}
+    class Snake extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=2; this.maxForce=0.15; this.size=15; this.searchRadius=150; } display() { push(); stroke('yellow'); strokeWeight(4); line(this.position.x, this.position.y, this.position.x - this.velocity.x * this.size, this.position.y - this.velocity.y * this.size); pop(); }}
+    class Hawk extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=3.5; this.maxForce=0.25; this.size=12; this.searchRadius=250; } display() { push(); translate(this.position.x,this.position.y); rotate(this.velocity.heading()+PI/2); noStroke(); fill('saddlebrown'); beginShape(); vertex(0, -this.size); vertex(-this.size/2, this.size); vertex(this.size/2, this.size); endShape(CLOSE); pop(); }}
+    
+    // --- Global Simulation State ---
+    let isSimulating = false, isPaused = false;
+    let dayCounter = 0, dayStartTime, pauseEndTime;
+    let populations = { trees: [], butterflies: [], frogs: [], snakes: [], hawks: [] };
+    let simMode = 'normal'; // 'normal' or 'hyper'
+    let dayLengthMillis = 10000;
+    let hyperSimTotalDays = 0;
+
+    // --- Global UI Element Variables ---
+    let mainButton, infoDisplay, normalControls, hyperControls, modeToggle, dayLengthSlider, dayLengthValue, yearsInput;
+    let initialInputs = {};
+
+    // --- UI & Main Logic ---
+    function setup() {
+        // Correct canvas sizing for responsiveness
+        let canvasContainer = select('#canvas-container');
+        let canvasWidth = canvasContainer.width;
+        let canvasHeight = windowHeight * 0.5; // Maintain a reasonable height
+        let canvas = createCanvas(canvasWidth, canvasHeight);
+        canvas.parent('canvas-container');
+
+        initializeUI();
+        updateControlsView();
+        noLoop();
+    }
+    
+    function initializeUI() {
+        mainButton = select('#main-button');
+        infoDisplay = select('#info-display');
+        normalControls = select('#normal-controls');
+        hyperControls = select('#hyper-controls');
+        modeToggle = select('#mode-toggle');
+        dayLengthSlider = select('#day-length-slider');
+        dayLengthValue = select('#day-length-value');
+        yearsInput = select('#years-input');
+        
+        initialInputs = {
+            trees: select('#initial-trees'), butterflies: select('#initial-butterflies'), frogs: select('#initial-frogs'), snakes: select('#initial-snakes'), hawks: select('#initial-hawks')
+        };
+        
+        mainButton.mousePressed(toggleSimulation);
+        modeToggle.changed(() => { simMode = modeToggle.elt.checked ? 'hyper' : 'normal'; updateControlsView(); });
+        dayLengthSlider.input(() => { dayLengthMillis = dayLengthSlider.value() * 1000; dayLengthValue.html(dayLengthSlider.value()); });
+    }
+    
+    function updateControlsView() {
+        if (simMode === 'hyper') {
+            normalControls.addClass('hidden');
+            hyperControls.removeClass('hidden');
+        } else {
+            normalControls.removeClass('hidden');
+            hyperControls.addClass('hidden');
+        }
+    }
+
+    function toggleSimulation() {
+        isSimulating = !isSimulating;
+        if(isSimulating) {
+            mainButton.html('Stop Simulation');
             resetSimulation();
+            loop();
+        } else {
+            mainButton.html('Start Simulation');
+            noLoop();
         }
-
-        function draw() {
-            background(10, 20, 30);
-
-            if (simulationMode === 'normal' && isSimulating) {
-                runNormalMode();
-            } else if (simulationMode === 'hyper' && isSimulating) {
-                runHyperMode();
-            }
-            
-            drawBugsAndEggs();
-            drawBoids();
-            drawPredators();
-
-            if (isPaused) {
-                displayPauseMessage();
-            }
-        }
-        
-        function runNormalMode() {
+    }
+    
+    function resetSimulation() {
+        dayCounter = 0; isPaused = false;
+        dayStartTime = millis();
+        populations = { trees: [], butterflies: [], frogs: [], snakes: [], hawks: [] };
+        const createPopulation = (arr, Cls, count) => { for(let i=0; i<count; i++) arr.push(new Cls(random(width), random(height), i%2===0?'male':'female')); };
+        createPopulation(populations.trees, Tree, int(initialInputs.trees.value()));
+        createPopulation(populations.butterflies, Butterfly, int(initialInputs.butterflies.value()));
+        createPopulation(populations.frogs, Frog, int(initialInputs.frogs.value()));
+        createPopulation(populations.snakes, Snake, int(initialInputs.snakes.value()));
+        createPopulation(populations.hawks, Hawk, int(initialInputs.hawks.value()));
+    }
+    
+    function draw() {
+        background('#87ceeb');
+        if (simMode === 'normal') {
             const timeElapsed = millis() - dayStartTime;
-            if (!isPaused && timeElapsed > dayLengthMillis) {
-                isPaused = true;
-                pauseEndTime = millis() + 1000;
-                endOfDay();
-            }
-
-            if (isPaused && millis() > pauseEndTime) {
-                startNewDay();
-            }
-
-            if(!isPaused) {
-                 const timeLeft = ((dayLengthMillis - timeElapsed) / 1000).toFixed(1);
-                 infoDisplay.html(`Day: ${dayCounter} | Predators: ${predators.length} | Boids: ${boids.length} | Bugs: ${bugs.length}`);
-                 updateCreatureMovement();
-            }
-        }
-
-        function runHyperMode() {
-            const daysPerFrame = 10;
-            let daysToSimulateThisFrame = min(daysPerFrame, hyperSimTotalDays - dayCounter + 1);
-
-            for(let i = 0; i < daysToSimulateThisFrame; i++) {
-                if (dayCounter >= hyperSimTotalDays) {
-                    stopSimulation();
-                    return;
-                }
-                
-                const stepsPerDay = 50;
-                for (let s = 0; s < stepsPerDay; s++) {
-                    updateCreatureMovement();
-                }
-
-                endOfDay();
-                dayCounter++;
-            }
-            
-            infoDisplay.html(`Simulating... Day ${dayCounter} | Predators: ${predators.length} | Boids: ${boids.length} | Bugs: ${bugs.length}`);
+            if(!isPaused && timeElapsed > dayLengthMillis) { isPaused=true; pauseEndTime=millis()+1500; endOfDay(); }
+            if(isPaused && millis() > pauseEndTime) { dayCounter++; dayStartTime=millis(); isPaused=false; }
+            if(!isPaused) runSimulationStep();
+        } else { // Hyper mode
+             hyperSimTotalDays = int(yearsInput.value()) * 365;
+             let daysPerFrame = 10;
+             for(let i=0; i<daysPerFrame; i++) {
+                 if(dayCounter > hyperSimTotalDays) { toggleSimulation(); return; }
+                 runSimulationStep(false); endOfDay(); dayCounter++;
+             }
         }
         
-        function updateCreatureMovement() {
-             // Predator logic
-            for (let i = predators.length - 1; i >= 0; i--) {
-                let p = predators[i];
-                p.update(boids, eggs); // Predators hunt boids and eggs
+        if (simMode === 'normal' || !isSimulating) {
+            Object.values(populations).flat().forEach(o => o.display());
+        }
 
-                // Check if predator eats a boid
-                for (let j = boids.length - 1; j >= 0; j--) {
-                    if (p.position.dist(boids[j].position) < p.size) {
-                        boids.splice(j, 1);
-                        p.eat();
-                        break; 
-                    }
-                }
-                // Check if predator eats an egg
-                for (let j = eggs.length - 1; j >= 0; j--) {
-                    if (p.position.dist(eggs[j].position) < p.size) {
-                        eggs.splice(j, 1);
-                        p.eat();
-                        break; 
+        // Only show the "Day X Ended" pause message if the sim is paused AND still running.
+        if(isPaused && isSimulating) { 
+            fill(255,200);
+            rectMode(CENTER);
+            rect(width/2,height/2,450,100,10);
+            fill(0);textAlign(CENTER,CENTER);
+            textSize(24);
+            text(`Day ${dayCounter} Ended`,width/2,height/2);
+        }
+        updateInfoDisplay();
+    }
+    
+    function runSimulationStep(shouldUpdateBehaviors = true) {
+        let qTrees = {};
+        for (const key in populations) {
+            qTrees[key] = new QuadTree(new Rectangle(width / 2, height / 2, width / 2, height / 2), 4);
+            for (const item of populations[key]) {
+                qTrees[key].insert(new Point(item.position.x, item.position.y, item));
+            }
+        }
+
+        if (shouldUpdateBehaviors) {
+            const findMates = (speciesArray, self) => speciesArray.filter(a => a.gender !== self.gender && a.foodEaten > 0);
+            populations.butterflies.forEach(o => { o.applyBehaviors(qTrees.trees, qTrees.frogs, findMates(populations.butterflies, o)); o.update(); });
+            populations.frogs.forEach(o => { o.applyBehaviors(qTrees.butterflies, qTrees.snakes, findMates(populations.frogs, o)); o.update(); });
+            populations.snakes.forEach(o => { o.applyBehaviors(qTrees.frogs, qTrees.hawks, findMates(populations.snakes, o)); o.update(); });
+            populations.hawks.forEach(o => { o.applyBehaviors(qTrees.snakes, null, findMates(populations.hawks, o)); o.update(); });
+        }
+        
+        handleInteractions();
+    }
+
+    function handleInteractions() {
+        const predation = (predators, prey) => {
+            for(let i = predators.length - 1; i>=0; i--) {
+                for(let j = prey.length-1; j>=0; j--) {
+                    if(predators[i].position.dist(prey[j].position) < (predators[i].size + prey[j].size) / 2) {
+                        prey.splice(j,1); predators[i].foodEaten++; return;
                     }
                 }
             }
-
-             // Boid logic
-             for (let i = boids.length - 1; i >= 0; i--) {
-                let b = boids[i];
-                b.update(bugs, eggs, predators);
-                
-                // Check if boid eats a bug
-                for (let j = bugs.length - 1; j >= 0; j--) {
-                    if (b.position.dist(bugs[j].position) < b.size) {
-                        bugs.splice(j, 1);
-                        b.eat();
-                    }
-                }
-                
-                // Check if boid eats an egg
-                for (let j = eggs.length - 1; j >= 0; j--) {
-                     if (b.position.dist(eggs[j].position) < b.size) {
-                        eggs.splice(j, 1);
-                        b.eat();
-                    }
-                }
-            }
-
-            // Bug logic
-             for (let i = bugs.length - 1; i >= 0; i--) {
-                let bug = bugs[i];
-                bug.update();
-                if (bug.mated) continue;
-                for (let j = i - 1; j >= 0; j--) {
-                     let otherBug = bugs[j];
-                     if (otherBug.mated) continue;
-                     if (bug.position.dist(otherBug.position) < bug.size) {
-                         if (bug.gender !== otherBug.gender) {
-                             eggs.push(new Egg(bug.position.x, bug.position.y));
-                             bug.mated = true;
-                             otherBug.mated = true;
-                             break;
-                         }
-                     }
-                }
-            }
-        }
+        };
+        predation(populations.butterflies, populations.trees);
+        predation(populations.frogs, populations.butterflies);
+        predation(populations.snakes, populations.frogs);
+        predation(populations.hawks, populations.snakes);
+    }
+    
+    function endOfDay() {
+        const reproduce = (speciesArray, SpeciesClass) => {
+            const newBabies=[]; let males=speciesArray.filter(a=>a.gender==='male'&&a.foodEaten>0); let females=speciesArray.filter(a=>a.gender==='female'&&a.foodEaten>0);
+            let pairings=min(males.length,females.length);
+            for(let i=0;i<pairings;i++){ let p1=males[i], p2=females[i]; if(p1.position.dist(p2.position)<30){let pos=p5.Vector.add(p1.position,p2.position).div(2);newBabies.push(new SpeciesClass(pos.x,pos.y,random()>0.5?'male':'female'));}}
+            speciesArray.push(...newBabies); speciesArray.forEach(a=>a.foodEaten=0);
+        };
+        reproduce(populations.butterflies,Butterfly); reproduce(populations.frogs,Frog); reproduce(populations.snakes,Snake); reproduce(populations.hawks,Hawk);
         
-        function drawBugsAndEggs() {
-            for (let b of bugs) { b.display(); }
-            for (let e of eggs) { e.display(); }
-        }
-
-        function drawBoids() {
-             for (let b of boids) { b.display(); }
-        }
-
-        function drawPredators() {
-            for (let p of predators) { p.display(); }
-        }
-
-        function displayPauseMessage() {
-            fill(255, 255, 255, 200); rectMode(CENTER);
-            rect(width / 2, height / 2, 450, 100, 10);
-            fill(0); textAlign(CENTER, CENTER);
-            textSize(24); text(`Day ${dayCounter} has ended.`, width / 2, height / 2 - 15);
-            textSize(18); text(`Predators: ${predators.length} | Boids: ${boids.length} | Bugs: ${bugs.length}`, width / 2, height / 2 + 15);
-        }
-
-        function endOfDay() {
-            // Predator EOD Logic
-            for (let i = predators.length - 1; i >= 0; i--) {
-                let p = predators[i];
-                if (dayCounter - p.birthDay > predatorMaxAgeInDays) { predators.splice(i, 1); continue; }
-                if (p.foodEatenToday > 0) { p.readyToReproduce = true; }
-                p.foodEatenToday = 0;
-            }
-            for (let i = 0; i < predators.length; i++) {
-                for (let j = i + 1; j < predators.length; j++) {
-                     let p1 = predators[i]; let p2 = predators[j];
-                     if (p1.readyToReproduce && p2.readyToReproduce && p1.gender !== p2.gender && p1.position.dist(p2.position) < p1.size * 2) {
-                        predators.push(Predator.reproduce(p1, p2));
-                        p1.readyToReproduce = false; p2.readyToReproduce = false;
-                     }
-                }
-            }
-
-
-            // Boid EOD Logic
-            for (let i = boids.length - 1; i >= 0; i--) {
-                let b = boids[i];
-                if (dayCounter - b.birthDay > boidMaxAgeInDays) { boids.splice(i, 1); continue; }
-                if (b.foodEatenToday === 0) { b.daysWithoutFood++; } else { b.daysWithoutFood = 0; }
-                if (b.daysWithoutFood >= 3) { boids.splice(i, 1); continue; }
-                if (b.foodEatenToday >= 2) { b.setReadyToReproduce(dayCounter); }
-                b.foodEatenToday = 0;
-            }
-
-            // Bug EOD Logic
-             for (let i = bugs.length - 1; i >= 0; i--) {
-                if (dayCounter - bugs[i].birthDay > 1) { bugs.splice(i, 1); } 
-                else { bugs[i].mated = false; }
-            }
-
-            // Egg Hatching Logic
-             for (let i = eggs.length - 1; i >= 0; i--) {
-                if (dayCounter - eggs[i].laidDay >= 1) { eggs[i].hatch(); eggs.splice(i, 1); }
-            }
-        }
+        for(let i=0;i<5;i++) populations.trees.push(new Tree(random(width),random(height)));
+        if(dayCounter % 30 === 0 && populations.trees.length > 100) { populations.trees.splice(0,100); }
         
-        function startNewDay() {
-            isPaused = false;
-            dayCounter++;
-            dayStartTime = millis();
-        }
-        
-        function initializeUI() {
-            // FIX: Initialize all UI element variables once.
-            infoDisplay = select('#info-display');
-            modeToggle = select('#mode-toggle');
-            mainButton = select('#main-button');
-            normalControls = select('#normal-controls');
-            hyperControls = select('#hyper-controls');
-            dayLengthSlider = select('#day-length-slider');
-            dayLengthValueSpan = select('#day-length-value');
-            yearsInput = select('#years-input');
-            daysInput = select('#days-input');
-            yearsRadio = select('#years-radio');
-            daysRadio = select('#days-radio');
-            
-            let durationRadios = selectAll('input[name="duration-type"]');
-            for(const radio of durationRadios) { radio.changed(updateHyperControls); }
-            modeToggle.changed(switchMode);
-            mainButton.mousePressed(toggleSimulation);
-            dayLengthSlider.input(() => { dayLengthMillis = dayLengthSlider.value() * 1000; dayLengthValueSpan.html(dayLengthSlider.value()); updateInfoDisplay(); });
-            yearsInput.input(updateInfoDisplay);
-            daysInput.input(updateInfoDisplay);
-        }
-        
-        function switchMode() {
-            simulationMode = this.elt.checked ? 'hyper' : 'normal';
-            stopSimulation();
-            resetSimulation();
-        }
-        
-        function toggleSimulation() {
-            if(isSimComplete) { resetSimulation(); return; }
-            if(isSimulating) { stopSimulation(); } else { startSimulation(); }
-        }
-        
-        function startSimulation() {
-            isSimulating = true;
-            resetSimulation();
-            if(simulationMode === 'hyper') {
-                 mainButton.html('Stop');
-                 mainButton.addClass('stop-button');
-            } else {
-                 mainButton.html('Restart');
-            }
-        }
+        // **FIX**: Check for extinction and provide a clear message
+        let extinctSpecies = null;
+        if (populations.butterflies.length === 0) extinctSpecies = "Butterflies";
+        else if (populations.frogs.length === 0) extinctSpecies = "Frogs";
+        else if (populations.snakes.length === 0) extinctSpecies = "Snakes";
+        else if (populations.hawks.length === 0) extinctSpecies = "Hawks";
 
-        function stopSimulation() {
-            isSimulating = false;
-            if (simulationMode === 'hyper') {
-                isSimComplete = true;
-                infoDisplay.html(`Simulation Stopped. Predators: ${predators.length} | Boids: ${boids.length} | Bugs: ${bugs.length}`);
-                mainButton.html('Reset');
-                mainButton.removeClass('stop-button');
-            } else {
-                 updateUIState();
-            }
+        if (extinctSpecies && isSimulating) {
+            infoDisplay.html(`Ecosystem collapsed on Day ${dayCounter}: ${extinctSpecies} went extinct.`);
+            toggleSimulation(); // This stops the simulation
         }
-        
-        function resetSimulation() {
-            isSimComplete = false;
-            boids = [];
-            bugs = [];
-            eggs = [];
-            predators = [];
-            dayCounter = 1;
-            dayStartTime = millis();
-            isPaused = false;
-            
-            for (let i = 0; i < initialBoids; i++) {
-                boids.push(new Boid(random(width), random(height), (i < initialBoids / 2) ? 'male' : 'female'));
-            }
-            for (let i = 0; i < initialBugs; i++) {
-                bugs.push(new Bug(random(width), random(height), (i < initialBugs / 2) ? 'male' : 'female'));
-            }
-             for (let i = 0; i < initialPredators; i++) {
-                predators.push(new Predator(random(width), random(height), (i < initialPredators / 2) ? 'male' : 'female'));
-            }
+    }
 
-            if (!isSimulating) {
-                updateUIState();
-            }
+    function updateInfoDisplay() {
+        if (!infoDisplay) return;
+        // Don't update the info display if the simulation has stopped due to extinction
+        if (!isSimulating && infoDisplay.html().includes("collapsed")) {
+            return;
         }
-        
-        function updateUIState() {
-            // FIX: Use global variables instead of calling select() again
-            if (simulationMode === 'normal') {
-                mainButton.html('Restart');
-                normalControls.removeClass('hidden');
-                hyperControls.addClass('hidden');
-            } else {
-                mainButton.html('Start Hyper-Sim');
-                normalControls.addClass('hidden');
-                hyperControls.removeClass('hidden');
-            }
-            mainButton.removeClass('stop-button');
-            updateHyperControls();
-            updateInfoDisplay();
+        let p = populations;
+        let counts = `🌳:${p.trees.length} | 🦋:${p.butterflies.length} | 🐸:${p.frogs.length} | 🐍:${p.snakes.length} | 🦅:${p.hawks.length}`;
+        if(simMode === 'hyper' && isSimulating) {
+            infoDisplay.html(`Simulating Day: ${dayCounter} / ${hyperSimTotalDays} | ${counts}`);
+        } else {
+            infoDisplay.html(`Day: ${dayCounter} | ${counts}`);
         }
-        
-        function updateHyperControls() {
-            // FIX: Use global variables
-            if (yearsRadio.elt.checked) {
-                yearsInput.removeAttribute('disabled');
-                daysInput.attribute('disabled', '');
-            } else {
-                yearsInput.attribute('disabled', '');
-                daysInput.removeAttribute('disabled');
-            }
-            updateInfoDisplay();
-        }
+    }
 
-        function calculateTotalDays() {
-            if(simulationMode === 'hyper') {
-                 // FIX: Use global variables
-                if (yearsRadio.elt.checked) { return yearsInput.value() * daysPerYear; } 
-                else { return daysInput.value(); }
-            }
-            return 0;
-        }
-
-        function updateInfoDisplay() {
-            if (isSimulating || isSimComplete) return;
-            if (simulationMode === 'normal') {
-                infoDisplay.html(`Day: 1 | Predators: ${initialPredators} | Boids: ${initialBoids} | Bugs: ${initialBugs}`);
-            } else {
-                hyperSimTotalDays = calculateTotalDays();
-                // FIX: Use global variables
-                let unit = yearsRadio.elt.checked ? "years" : "days";
-                let amount = yearsRadio.elt.checked ? yearsInput.value() : daysInput.value();
-                infoDisplay.html(`Ready for Hyper-Sim of ${amount} ${unit}. Press Start.`);
-            }
-        }
-        
-        function mousePressed() {
-            if (mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height && !select('.controls').elt.contains(event.target)) {
-                bugs.push(new Bug(mouseX, mouseY, random(1) > 0.5 ? 'male' : 'female'));
-            }
-        }
-        
-        function windowResized() {
-            resizeCanvas(windowWidth * 0.9, windowHeight * 0.55);
-        }
-
-        class Predator {
-            constructor(x, y, gender) {
-                this.position = createVector(x, y);
-                this.velocity = p5.Vector.random2D().setMag(random(1, 1.5));
-                this.acceleration = createVector();
-                this.maxForce = 0.1; this.maxSpeed = 2.5; this.size = 15;
-                this.gender = gender;
-                this.birthDay = dayCounter;
-                this.foodEatenToday = 0;
-                this.readyToReproduce = false;
-            }
-            eat() { this.foodEatenToday++; }
-            static reproduce(p1, p2) {
-                let p = p5.Vector.add(p1.position, p2.position).div(2);
-                return new Predator(p.x, p.y, random(1) > 0.5 ? 'male' : 'female');
-            }
-            seek(target) {
-                let desired = p5.Vector.sub(target, this.position).setMag(this.maxSpeed);
-                return p5.Vector.sub(desired, this.velocity).limit(this.maxForce);
-            }
-            update(boidList, eggList) {
-                let closestTarget = null; let closestDist = Infinity;
-                for (let b of boidList) {
-                    let d = this.position.dist(b.position);
-                    if (d < closestDist) { closestDist = d; closestTarget = b; }
-                }
-                for (let e of eggList) {
-                     let d = this.position.dist(e.position);
-                    if (d < closestDist) { closestDist = d; closestTarget = e; }
-                }
-
-                if (closestTarget) { this.acceleration.add(this.seek(closestTarget.position)); }
-
-                this.velocity.add(this.acceleration);
-                this.velocity.limit(this.maxSpeed);
-                this.position.add(this.velocity);
-                this.acceleration.mult(0);
-                this.boundaries();
-            }
-             boundaries() {
-                if (this.position.x < 0) this.position.x = width; if (this.position.y < 0) this.position.y = height;
-                if (this.position.x > width) this.position.x = 0; if (this.position.y > height) this.position.y = 0;
-            }
-            display() {
-                let angle = this.velocity.heading() + PI / 2;
-                push();
-                translate(this.position.x, this.position.y); rotate(angle);
-                let predColor = (this.gender === 'male') ? color(255, 50, 50) : color(200, 0, 0);
-                if (this.readyToReproduce) { stroke(255); } else { stroke(150); }
-                fill(predColor);
-                strokeWeight(1.5);
-                beginShape();
-                vertex(0, -this.size); vertex(-this.size, this.size); vertex(this.size, this.size);
-                endShape(CLOSE);
-                pop();
-            }
-        }
-        
-        class Boid {
-            constructor(x, y, gender) {
-                this.position = createVector(x, y);
-                this.velocity = p5.Vector.random2D().setMag(random(1, 2.5));
-                this.acceleration = createVector();
-                this.maxForce = 0.2; this.maxSpeed = 3; this.size = 12;
-                this.gender = gender;
-                this.birthDay = dayCounter;
-                this.foodEatenToday = 0; this.readyToReproduceUntilDay = -1;
-                this.daysWithoutFood = 0;
-            }
-            eat() { this.foodEatenToday++; }
-            setReadyToReproduce(cd) { this.readyToReproduceUntilDay = cd + 7; }
-            isReadyToReproduce(cd) { return cd <= this.readyToReproduceUntilDay; }
-            resetReproduction() { this.readyToReproduceUntilDay = -1; }
-            static reproduce(b1, b2) {
-                let p = p5.Vector.add(b1.position, b2.position).div(2);
-                return new Boid(p.x, p.y, random(1) > 0.5 ? 'male' : 'female');
-            }
-            seek(target) {
-                let desired = p5.Vector.sub(target, this.position).setMag(this.maxSpeed);
-                return p5.Vector.sub(desired, this.velocity).limit(this.maxForce);
-            }
-             flee(target) {
-                return this.seek(target).mult(-1);
-            }
-            update(bugList, eggList, predatorSource) {
-                let closestPredator = null; let closestPredDist = Infinity;
-                for (let p of predatorSource) {
-                    let d = this.position.dist(p.position);
-                    if (d < closestPredDist) { closestPredDist = d; closestPredator = p; }
-                }
-
-                if (closestPredator && closestPredDist < 100) {
-                    this.acceleration.add(this.flee(closestPredator.position));
-                } else {
-                     let closestFood = null; let closestFoodDist = Infinity;
-                    
-                    for (let f of bugList) {
-                        let d = this.position.dist(f.position);
-                        if (d < closestFoodDist) { closestFoodDist = d; closestFood = f; }
-                    }
-                    for (let f of eggList) {
-                        let d = this.position.dist(f.position);
-                        if (d < closestFoodDist) { closestFoodDist = d; closestFood = f; }
-                    }
-
-                    if (closestFood) { this.acceleration.add(this.seek(closestFood.position)); }
-                }
-                
-                this.velocity.add(this.acceleration);
-                this.velocity.limit(this.maxSpeed);
-                this.position.add(this.velocity);
-                this.acceleration.mult(0);
-                this.boundaries();
-            }
-            boundaries() {
-                if (this.position.x < 0) this.position.x = width; if (this.position.y < 0) this.position.y = height;
-                if (this.position.x > width) this.position.x = 0; if (this.position.y > height) this.position.y = 0;
-            }
-            display() {
-                let angle = this.velocity.heading() + PI / 2;
-                push();
-                translate(this.position.x, this.position.y); rotate(angle);
-                let boidColor = (this.gender === 'male') ? color(100, 100, 255) : color(255, 100, 150);
-                if (this.isReadyToReproduce(dayCounter)) { stroke(255); } else { stroke(200); }
-                fill(boidColor);
-                strokeWeight(1);
-                beginShape();
-                vertex(0, -this.size); vertex(-this.size / 2, this.size / 2); vertex(this.size / 2, this.size / 2);
-                endShape(CLOSE);
-                pop();
-            }
-        }
-
-        class Bug {
-            constructor(x, y, gender) {
-                this.position = createVector(x, y);
-                this.velocity = p5.Vector.random2D().setMag(random(0.5, 1.5));
-                this.size = 5; this.gender = gender; this.birthDay = dayCounter; this.mated = false;
-            }
-            update() { this.position.add(this.velocity); this.boundaries(); }
-            boundaries() {
-                if (this.position.x < 0 || this.position.x > width) this.velocity.x *= -1;
-                if (this.position.y < 0 || this.position.y > height) this.velocity.y *= -1;
-            }
-            display() {
-                push();
-                translate(this.position.x, this.position.y);
-                fill(139, 69, 19); noStroke();
-                ellipse(0, 0, this.size, this.size);
-                pop();
-            }
-        }
-
-        class Egg {
-            constructor(x, y) {
-                this.position = createVector(x, y);
-                this.laidDay = dayCounter; this.size = 10;
-            }
-            hatch() {
-                for(let i = 0; i < 100; i++) {
-                    bugs.push(new Bug(this.position.x + random(-5, 5), this.position.y + random(-5, 5), random(1) > 0.5 ? 'male' : 'female'));
-                }
-            }
-            display() {
-                push();
-                translate(this.position.x, this.position.y);
-                fill(245, 245, 220); stroke(200);
-                ellipse(0, 0, this.size, this.size * 1.2);
-                pop();
-            }
-        }
+    function windowResized() {
+        let canvasContainer = select('#canvas-container');
+        let canvasWidth = canvasContainer.width;
+        let canvasHeight = windowHeight * 0.5;
+        resizeCanvas(canvasWidth, canvasHeight);
+    }
     </script>
 </body>
 </html>
