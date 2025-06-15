@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rainforest Ecosystem Simulator</title>
+    <!-- p5.js script loads first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
         :root {
@@ -139,13 +140,14 @@
         </div>
     </main>
 
-    <!-- JavaScript modules are now loaded in order -->
-    <script src="js/QuadTree.js"></script>
-    <script src="js/Animal.js"></script>
-    <script src="js/Species.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/simulation.js"></script>
-    <script src="js/sketch.js"></script>
+    <!-- **FIXED SCRIPT ORDER & CASE** -->
+    <!-- Ensures filenames match exactly (all lowercase is best practice) -->
+    <script src="js/quadtree.js" defer></script>
+    <script src="js/animal.js" defer></script>
+    <script src="js/species.js" defer></script>
+    <script src="js/simulation.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/sketch.js" defer></script>
 
 </body>
 </html>
