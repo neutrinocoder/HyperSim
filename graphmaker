@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Population Graph Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 sm:p-8">
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Ecosystem Population History</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Visualize population dynamics from a CSV file.</p>
+                </div>
+                <div class="mt-4 sm:mt-0">
+                    <label for="csvFileInput" class="cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        Upload New CSV
+                    </label>
+                    <input type="file" id="csvFileInput" class="hidden" accept=".csv">
+                </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="w-full h-96 md:h-[500px] bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                <canvas id="populationChart"></canvas>
+            </div>
+            
+            <!-- Message Area -->
+            <div id="messageArea" class="mt-4 text-center text-gray-500 dark:text-gray-400"></div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('csvFileInput');
+        const messageArea = document.getElementById('messageArea');
+        const ctx = document.getElementById('populationChart').getContext('2d');
+        let populationChart;
+
+        // Colors for the chart lines
+        const CHART_COLORS = {
+            butterflies: 'rgba(59, 130, 246, 0.8)', // blue-500
+            frogs: 'rgba(34, 197, 94, 0.8)',      // green-500
+            snakes: 'rgba(239, 68, 68, 0.8)',      // red-500
+            hawks: 'rgba(249, 115, 22, 0.8)'       // orange-500
+        };
+
+        const CHART_BG_COLORS = {
+            butterflies: 'rgba(59, 130, 246, 0.1)',
+            frogs: 'rgba(34, 197, 94, 0.1)',
+            snakes: 'rgba(239, 68, 68, 0.1)',
+            hawks: 'rgba(249, 115, 22, 0.1)'
+        };
+
+        // --- Initial data from the provided CSV file ---
+        const initialCsvData = `Weeks,Butterflies,Frogs,Snakes,Hawks
+0,1000,100,10,2
+1,1200,110,11,3
+2,1500,130,12,3
+3,1800,150,14,4
+4,2000,180,16,5
+5,1900,200,19,6
+6,1700,210,21,7
+7,1500,200,22,8
+8,1300,180,21,9
+9,1100,160,20,8
+10,1000,150,18,7
+11,950,145,17,6
+12,900,140,16,5
+13,880,138,15,5
+14,870,135,14,4
+15,900,130,13,4
+16,950,125,12,3
+17,1050,120,11,3
+18,1200,115,11,2
+19,1400,110,10,2`;
+
+        // Function to parse CSV data and create the chart
+        function createChart(csvData) {
+            Papa.parse(csvData, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        messageArea.textContent = 'Error parsing CSV file: ' + results.errors[0].message;
+                        console.error("CSV Parsing Errors:", results.errors);
+                        return;
+                    }
+                    
+                    const data = results.data;
+
+                    // Validate required columns
+                    const requiredColumns = ['Weeks', 'Butterflies', 'Frogs', 'Snakes', 'Hawks'];
+                    const headers = results.meta.fields;
+                    for(const col of requiredColumns){
+                        if(!headers.includes(col)){
+                            messageArea.textContent = `CSV file is missing the required column: "${col}". Please check your file.`;
+                            return;
+                        }
+                    }
+
+                    const labels = data.map(row => row.Weeks);
+                    const butterfliesData = data.map(row => row.Butterflies);
+                    const frogsData = data.map(row => row.Frogs);
+                    const snakesData = data.map(row => row.Snakes);
+                    const hawksData = data.map(row => row.Hawks);
+
+                    const datasets = [
+                        {
+                            label: 'Butterflies',
+                            data: butterfliesData,
+                            borderColor: CHART_COLORS.butterflies,
+                            backgroundColor: CHART_BG_COLORS.butterflies,
+                            tension: 0.3,
+                            fill: true,
+                        },
+                        {
+                            label: 'Frogs',
+                            data: frogsData,
+                            borderColor: CHART_COLORS.frogs,
+                            backgroundColor: CHART_BG_COLORS.frogs,
+                            tension: 0.3,
+                            fill: true,
+                        },
+                        {
+                            label: 'Snakes',
+                            data: snakesData,
+                            borderColor: CHART_COLORS.snakes,
+                            backgroundColor: CHART_BG_COLORS.snakes,
+                            tension: 0.3,
+                            fill: true,
+                        },
+                        {
+                            label: 'Hawks',
+                            data: hawksData,
+                            borderColor: CHART_COLORS.hawks,
+                            backgroundColor: CHART_BG_COLORS.hawks,
+                            tension: 0.3,
+                            fill: true,
+                        }
+                    ];
+
+                    drawChart(labels, datasets);
+                    messageArea.textContent = 'Chart updated successfully.';
+                }
+            });
+        }
+        
+        // Function to draw or update the chart
+        function drawChart(labels, datasets) {
+            if (populationChart) {
+                populationChart.destroy();
+            }
+
+            populationChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: document.body.classList.contains('dark') ? '#E5E7EB' : '#4B5563',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#334155', // slate-700
+                            titleFont: { size: 16 },
+                            bodyFont: { size: 14 },
+                            padding: 10,
+                            cornerRadius: 6,
+                            displayColors: true,
+                            boxPadding: 4
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Weeks',
+                                color: document.body.classList.contains('dark') ? '#9CA3AF' : '#6B7280',
+                                font: { size: 16, weight: '500' }
+                            },
+                             ticks: { color: document.body.classList.contains('dark') ? '#D1D5DB' : '#4B5563' }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Population',
+                                color: document.body.classList.contains('dark') ? '#9CA3AF' : '#6B7280',
+                                font: { size: 16, weight: '500' }
+                            },
+                             ticks: { color: document.body.classList.contains('dark') ? '#D1D5DB' : '#4B5563' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listener for file input
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                if (file.type === "text/csv") {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const text = e.target.result;
+                        createChart(text);
+                        messageArea.textContent = `Loaded data from ${file.name}.`;
+                    };
+                    reader.readAsText(file);
+                } else {
+                    messageArea.textContent = 'Please upload a valid .csv file.';
+                }
+            }
+        });
+        
+        // --- On Load ---
+        // Load the initial data when the page loads
+        window.onload = () => {
+             createChart(initialCsvData);
+             messageArea.textContent = 'Showing default data. Upload your own CSV to update the chart.';
+        };
+
+    </script>
+</body>
+</html>
