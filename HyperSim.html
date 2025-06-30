@@ -18,18 +18,18 @@
             height: 100%;
         }
         body {
-            min-height: 100vh; /* Use min-height to allow content to expand */
+            min-height: 100vh;
             margin: 0;
             padding: 0;
             background-color: var(--dark-bg);
             font-family: 'Arial', sans-serif;
             color: var(--text-color);
-            display: flex; /* Use flexbox for centering */
+            display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px; /* Add some padding for small screens */
+            padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto; /* Enable vertical scrolling for the whole page */
+            overflow-y: auto;
         }
         main {
             display: flex;
@@ -42,6 +42,10 @@
         #canvas-container { 
             flex-shrink: 0; 
             width: 100%;
+            cursor: grab;
+        }
+        #canvas-container:active {
+            cursor: grabbing;
         }
         canvas {
             display: block;
@@ -49,7 +53,7 @@
             border-radius: 8px;
             box-shadow: 0 0 20px rgba(40, 180, 99, 0.3);
             max-width: 100%;
-            height: auto; /* Adjust height automatically */
+            height: auto;
         }
         .controls {
             background-color: var(--medium-bg);
@@ -82,7 +86,7 @@
             width: 100%;
             max-width: 600px;
         }
-        .input-group {
+        .input-group, .map-size-group {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -100,7 +104,19 @@
         #main-button { background-color: var(--accent-green); }
         #main-button:hover { background-color: #218838; }
         .hidden { display: none; }
-        .mode-switch { display: flex; gap: 10px; align-items: center; }
+        .mode-switch { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;}
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        .toggle-button {
+            background-color: var(--light-bg);
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .toggle-button.active {
+            background-color: var(--accent-blue);
+        }
     </style>
 </head>
 <body>
@@ -114,18 +130,29 @@
                 <label>Normal Mode</label>
                 <input type="checkbox" id="mode-toggle">
                 <label>Hyper Mode</label>
+                <button id="status-toggle" class="toggle-button">Show Status</button>
+                <button id="trees-toggle" class="toggle-button active">Show Trees</button>
+            </div>
+            
+            <div class="map-size-group">
+                <label>Map Size:</label>
+                <select id="map-size-select">
+                    <option value="small">Small (1200x800)</option>
+                    <option value="medium" selected>Medium (1800x1200)</option>
+                    <option value="large">Large (2400x1600)</option>
+                </select>
             </div>
 
             <div class="settings-grid">
-                <div class="input-group"><label for="initial-trees">Trees:</label><input type="number" id="initial-trees" value="100" min="0"></div>
+                <div class="input-group"><label for="initial-plants">Plants:</label><input type="number" id="initial-plants" value="100" min="0"></div>
                 <div class="input-group"><label for="initial-butterflies">Butterflies:</label><input type="number" id="initial-butterflies" value="40" min="0"></div>
-                <div class="input-group"><label for="initial-frogs">Frogs:</label><input type="number" id="initial-frogs" value="15" min="0"></div>
-                <div class="input-group"><label for="initial-snakes">Snakes:</label><input type="number" id="initial-snakes" value="5" min="0"></div>
+                <div class="input-group"><label for="initial-frogs">Frogs:</label><input type="number" id="initial-frogs" value="12" min="0"></div>
+                <div class="input-group"><label for="initial-snakes">Snakes:</label><input type="number" id="initial-snakes" value="3" min="0"></div>
                 <div class="input-group"><label for="initial-hawks">Hawks:</label><input type="number" id="initial-hawks" value="2" min="0"></div>
             </div>
 
             <div id="normal-controls">
-                <label for="day-length-slider">Day Length: <span id="day-length-value">10</span>s</label>
+                <label for="day-length-slider">Day Length (Speed): <span id="day-length-value">10</span>s</label>
                 <input type="range" id="day-length-slider" min="1" max="30" value="10">
             </div>
             <div id="hyper-controls" class="hidden">
@@ -135,12 +162,14 @@
                 </div>
             </div>
 
-            <button id="main-button">Start Simulation</button>
+            <div class="button-group">
+                <button id="main-button">Start Simulation</button>
+            </div>
         </div>
     </main>
 
     <script>
-    // --- QuadTree (Helper for Optimization) ---
+    // --- QuadTree ---
     class Point { constructor(x, y, userData) { this.x = x; this.y = y; this.userData = userData; } }
     class Rectangle {
         constructor(x, y, w, h) { this.x = x; this.y = y; this.w = w; this.h = h; }
@@ -170,224 +199,513 @@
         }
     }
 
-    // --- BASE ANIMAL CLASS ---
+    // --- Animal ---
     class Animal {
         constructor(x, y, gender) {
-            this.position = createVector(x, y); this.velocity = p5.Vector.random2D(); this.acceleration = createVector(); this.gender = gender; this.foodEaten = 0;
+            this.position = createVector(x, y);
+            this.velocity = p5.Vector.random2D();
+            this.acceleration = createVector();
+            this.gender = gender;
+            this.hunger = 0; this.matingUrge = 0; this.panic = 0;
+            this.wanderTheta = random(TWO_PI);
+            this.timeSpentHiding = 0;
+            this.age = 0; 
+            this.daysWithoutFood = 0;
         }
-        seek(target) { let desired = p5.Vector.sub(target.position, this.position); desired.setMag(this.maxSpeed); return p5.Vector.sub(desired, this.velocity).limit(this.maxForce); }
-        flee(target) { return this.seek(target).mult(-1.5); }
-        applyBehaviors(preyQT, predatorQT, mates) {
-             let searchArea = new Rectangle(this.position.x, this.position.y, this.searchRadius, this.searchRadius);
-             let predatorsNearby = predatorQT ? predatorQT.query(searchArea) : [];
-             if (predatorsNearby.length > 0) { this.acceleration.add(this.flee(predatorsNearby[0].userData)); }
-             else if (this.foodEaten > 0 && mates.length > 0) { this.acceleration.add(this.seek(mates[0])); }
-             else { let preyNearby = preyQT ? preyQT.query(searchArea) : []; if(preyNearby.length > 0) { this.acceleration.add(this.seek(preyNearby[0].userData)); } }
+
+        isHungry() { return this.hunger > this.hungerThreshold; }
+        isReadyToMate() { return this.matingUrge >= 100; }
+        isHiding() { return this.timeSpentHiding > 0; }
+
+        seek(targetVector, multiplier = 1) { let desired=p5.Vector.sub(targetVector,this.position); desired.setMag(this.maxSpeed * multiplier); return p5.Vector.sub(desired,this.velocity).limit(this.maxForce * multiplier); }
+        flee(targetVector, multiplier = 1.5) { return this.seek(targetVector).mult(-multiplier); }
+        wander() {
+            let wanderPoint = this.velocity.copy(); wanderPoint.setMag(100); wanderPoint.add(this.position);
+            let wanderRadius = 50, theta = this.wanderTheta + this.velocity.heading();
+            let x = wanderRadius * cos(theta), y = wanderRadius * sin(theta);
+            wanderPoint.add(x, y);
+            let steer = p5.Vector.sub(wanderPoint, this.position); steer.setMag(this.maxForce);
+            this.acceleration.add(steer); this.wanderTheta += random(-0.5, 0.5);
         }
-        update() { this.velocity.add(this.acceleration); this.velocity.limit(this.maxSpeed); this.position.add(this.velocity); this.acceleration.mult(0); this.boundaries(); }
-        boundaries() { if (this.position.x < 0) this.position.x = width; if (this.position.x > width) this.position.x = 0; if (this.position.y < 0) this.position.y = height; if (this.position.y > height) this.position.y = 0; }
-    }
-
-    // --- ECOSYSTEM SPECIES with NEW VISUALS ---
-    class Tree { constructor(x, y) { this.position = createVector(x,y); this.size=random(10,20); } display() { noStroke(); fill('green'); ellipse(this.position.x,this.position.y,this.size,this.size);}}
-    class Butterfly extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=2; this.maxForce=0.1; this.size=8; this.searchRadius=100; } display() { noStroke(); fill('pink'); ellipse(this.position.x, this.position.y, this.size, this.size); }}
-    class Frog extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=2.5; this.maxForce=0.2; this.size=12; this.searchRadius=120; } display() { noStroke(); fill('darkgreen'); ellipse(this.position.x, this.position.y, this.size, this.size); }}
-    class Snake extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=2; this.maxForce=0.15; this.size=15; this.searchRadius=150; } display() { push(); stroke('yellow'); strokeWeight(4); line(this.position.x, this.position.y, this.position.x - this.velocity.x * this.size, this.position.y - this.velocity.y * this.size); pop(); }}
-    class Hawk extends Animal { constructor(x,y,g) { super(x,y,g); this.maxSpeed=3.5; this.maxForce=0.25; this.size=12; this.searchRadius=250; } display() { push(); translate(this.position.x,this.position.y); rotate(this.velocity.heading()+PI/2); noStroke(); fill('saddlebrown'); beginShape(); vertex(0, -this.size); vertex(-this.size/2, this.size); vertex(this.size/2, this.size); endShape(CLOSE); pop(); }}
-    
-    // --- Global Simulation State ---
-    let isSimulating = false, isPaused = false;
-    let dayCounter = 0, dayStartTime, pauseEndTime;
-    let populations = { trees: [], butterflies: [], frogs: [], snakes: [], hawks: [] };
-    let simMode = 'normal'; // 'normal' or 'hyper'
-    let dayLengthMillis = 10000;
-    let hyperSimTotalDays = 0;
-
-    // --- Global UI Element Variables ---
-    let mainButton, infoDisplay, normalControls, hyperControls, modeToggle, dayLengthSlider, dayLengthValue, yearsInput;
-    let initialInputs = {};
-
-    // --- UI & Main Logic ---
-    function setup() {
-        // Correct canvas sizing for responsiveness
-        let canvasContainer = select('#canvas-container');
-        let canvasWidth = canvasContainer.width;
-        let canvasHeight = windowHeight * 0.5; // Maintain a reasonable height
-        let canvas = createCanvas(canvasWidth, canvasHeight);
-        canvas.parent('canvas-container');
-
-        initializeUI();
-        updateControlsView();
-        noLoop();
-    }
-    
-    function initializeUI() {
-        mainButton = select('#main-button');
-        infoDisplay = select('#info-display');
-        normalControls = select('#normal-controls');
-        hyperControls = select('#hyper-controls');
-        modeToggle = select('#mode-toggle');
-        dayLengthSlider = select('#day-length-slider');
-        dayLengthValue = select('#day-length-value');
-        yearsInput = select('#years-input');
+        findClosest(qtree) {
+            if (!qtree) return null;
+            let searchArea = new Rectangle(this.position.x, this.position.y, this.searchRadius, this.searchRadius);
+            let nearby = qtree.query(searchArea);
+            let closest = null, closestDist = Infinity;
+            for (let p of nearby) { let d=this.position.dist(p.userData.position); if (d < closestDist){closestDist=d; closest=p.userData;}}
+            return closest;
+        }
         
-        initialInputs = {
-            trees: select('#initial-trees'), butterflies: select('#initial-butterflies'), frogs: select('#initial-frogs'), snakes: select('#initial-snakes'), hawks: select('#initial-hawks')
-        };
-        
-        mainButton.mousePressed(toggleSimulation);
-        modeToggle.changed(() => { simMode = modeToggle.elt.checked ? 'hyper' : 'normal'; updateControlsView(); });
-        dayLengthSlider.input(() => { dayLengthMillis = dayLengthSlider.value() * 1000; dayLengthValue.html(dayLengthSlider.value()); });
-    }
-    
-    function updateControlsView() {
-        if (simMode === 'hyper') {
-            normalControls.addClass('hidden');
-            hyperControls.removeClass('hidden');
-        } else {
-            normalControls.removeClass('hidden');
-            hyperControls.addClass('hidden');
-        }
-    }
+        applyBehaviors(preyQT, predatorQT, mates, hidingSpotsQT) {
+             let closestPredator = this.findClosest(predatorQT);
+             if (closestPredator) {
+                let d = this.position.dist(closestPredator.position);
+                this.panic = map(d, 0, this.searchRadius, 100, 20);
+                this.timeSpentHiding++;
 
-    function toggleSimulation() {
-        isSimulating = !isSimulating;
-        if(isSimulating) {
-            mainButton.html('Stop Simulation');
-            resetSimulation();
-            loop();
-        } else {
-            mainButton.html('Start Simulation');
-            noLoop();
-        }
-    }
-    
-    function resetSimulation() {
-        dayCounter = 0; isPaused = false;
-        dayStartTime = millis();
-        populations = { trees: [], butterflies: [], frogs: [], snakes: [], hawks: [] };
-        const createPopulation = (arr, Cls, count) => { for(let i=0; i<count; i++) arr.push(new Cls(random(width), random(height), i%2===0?'male':'female')); };
-        createPopulation(populations.trees, Tree, int(initialInputs.trees.value()));
-        createPopulation(populations.butterflies, Butterfly, int(initialInputs.butterflies.value()));
-        createPopulation(populations.frogs, Frog, int(initialInputs.frogs.value()));
-        createPopulation(populations.snakes, Snake, int(initialInputs.snakes.value()));
-        createPopulation(populations.hawks, Hawk, int(initialInputs.hawks.value()));
-    }
-    
-    function draw() {
-        background('#87ceeb');
-        if (simMode === 'normal') {
-            const timeElapsed = millis() - dayStartTime;
-            if(!isPaused && timeElapsed > dayLengthMillis) { isPaused=true; pauseEndTime=millis()+1500; endOfDay(); }
-            if(isPaused && millis() > pauseEndTime) { dayCounter++; dayStartTime=millis(); isPaused=false; }
-            if(!isPaused) runSimulationStep();
-        } else { // Hyper mode
-             hyperSimTotalDays = int(yearsInput.value()) * 365;
-             let daysPerFrame = 10;
-             for(let i=0; i<daysPerFrame; i++) {
-                 if(dayCounter > hyperSimTotalDays) { toggleSimulation(); return; }
-                 runSimulationStep(false); endOfDay(); dayCounter++;
+                let closestHidingSpot = this.findClosest(hidingSpotsQT);
+                if (closestHidingSpot && this.timeSpentHiding < 120) { 
+                    this.acceleration.add(this.seek(closestHidingSpot.position));
+                } else {
+                    this.acceleration.add(this.flee(closestPredator.position, map(this.panic,0,100,1,2.5)));
+                }
+             } else {
+                this.panic = 0;
+                this.timeSpentHiding = 0;
+                
+                if (this.isHungry()) { let target = this.findClosest(preyQT); if(target) this.acceleration.add(this.seek(target.position)); else this.wander(); }
+                else if (this.isReadyToMate() && mates.length > 0) { this.acceleration.add(this.seek(mates[0].position)); }
+                else { this.wander(); }
              }
         }
         
-        if (simMode === 'normal' || !isSimulating) {
-            Object.values(populations).flat().forEach(o => o.display());
-        }
-
-        // Only show the "Day X Ended" pause message if the sim is paused AND still running.
-        if(isPaused && isSimulating) { 
-            fill(255,200);
-            rectMode(CENTER);
-            rect(width/2,height/2,450,100,10);
-            fill(0);textAlign(CENTER,CENTER);
-            textSize(24);
-            text(`Day ${dayCounter} Ended`,width/2,height/2);
-        }
-        updateInfoDisplay();
-    }
-    
-    function runSimulationStep(shouldUpdateBehaviors = true) {
-        let qTrees = {};
-        for (const key in populations) {
-            qTrees[key] = new QuadTree(new Rectangle(width / 2, height / 2, width / 2, height / 2), 4);
-            for (const item of populations[key]) {
-                qTrees[key].insert(new Point(item.position.x, item.position.y, item));
+        updateStats() { 
+            this.age++;
+            this.hunger=min(100, this.hunger + this.hungerRate); 
+            if (!this.isHungry()) {
+                this.matingUrge = min(200, this.matingUrge + 100); 
+                this.daysWithoutFood = 0;
+            } else {
+                this.daysWithoutFood++;
             }
         }
-
-        if (shouldUpdateBehaviors) {
-            const findMates = (speciesArray, self) => speciesArray.filter(a => a.gender !== self.gender && a.foodEaten > 0);
-            populations.butterflies.forEach(o => { o.applyBehaviors(qTrees.trees, qTrees.frogs, findMates(populations.butterflies, o)); o.update(); });
-            populations.frogs.forEach(o => { o.applyBehaviors(qTrees.butterflies, qTrees.snakes, findMates(populations.frogs, o)); o.update(); });
-            populations.snakes.forEach(o => { o.applyBehaviors(qTrees.frogs, qTrees.hawks, findMates(populations.snakes, o)); o.update(); });
-            populations.hawks.forEach(o => { o.applyBehaviors(qTrees.snakes, null, findMates(populations.hawks, o)); o.update(); });
-        }
+        update() { this.maxSpeed=this.baseMaxSpeed*speedMultiplier; this.maxForce=this.baseMaxForce*speedMultiplier; this.velocity.add(this.acceleration); this.velocity.limit(this.maxSpeed); this.position.add(this.velocity); this.acceleration.mult(0); this.boundaries(); }
+        boundaries() { if (this.position.x < 0) this.position.x = worldWidth; if (this.position.x > worldWidth) this.position.x = 0; if (this.position.y < 0) this.position.y = worldHeight; if (this.position.y > worldHeight) this.position.y = 0; }
         
-        handleInteractions();
+        displayState() {
+            if (!showStatusBars) return;
+            const barWidth = 25, barHeight = 4, spacing = 1;
+            const x = this.position.x - barWidth / 2, y = this.position.y - this.size - (barHeight + spacing) * 3 - 2;
+            const drawBar = (value, color, yOffset) => { push(); fill(50); noStroke(); rect(x,y+yOffset,barWidth,barHeight,1); let w=map(value,0,100,0,barWidth); fill(color); rect(x,y+yOffset,w,barHeight,1); pop(); };
+            drawBar(this.panic, color(255,0,0), 0);
+            drawBar(this.matingUrge, color(255,105,180), barHeight + spacing);
+            drawBar(this.hunger, color(255,165,0), (barHeight + spacing) * 2);
+        }
+        displayHoverStats() {
+            let m = screenToWorld(mouseX, mouseY);
+            if (showStatusBars && dist(m.x, m.y, this.position.x, this.position.y) < this.size + 10) {
+                push();
+                fill(0,0,0,150); noStroke(); rect(this.position.x+15,this.position.y-30,80,45,5);
+                fill(255); textSize(10); textAlign(LEFT, TOP);
+                text(`P: ${floor(this.panic)}`, this.position.x+20, this.position.y-28);
+                text(`M: ${floor(this.matingUrge)}`, this.position.x+20, this.position.y-18);
+                text(`H: ${floor(this.hunger)}`, this.position.x+20, this.position.y-8);
+                pop();
+            }
+        }
     }
 
+    // --- Species ---
+    class Plant { constructor(x, y) { this.position = createVector(x,y); this.size=random(5,15); } display() { noStroke(); fill(0,100,0); ellipse(this.position.x,this.position.y,this.size,this.size);}}
+    class Butterfly extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=2; this.baseMaxForce=0.1; this.size=8; this.searchRadius=100; this.hungerRate=0; this.maxAge = 10;} isHungry() {return false;} display() { noStroke(); fill('pink'); ellipse(this.position.x, this.position.y, this.size, this.size); this.displayState(); this.displayHoverStats(); }}
+    class Frog extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=2.5; this.baseMaxForce=0.2; this.size=12; this.searchRadius=120; this.hungerRate=15; this.hungerThreshold=50; this.maxAge=100; this.maxDaysWithoutFood = 12;} eat() {this.hunger=max(0, this.hunger-60);} display() { noStroke(); fill('darkgreen'); ellipse(this.position.x, this.position.y, this.size, this.size); this.displayState(); this.displayHoverStats(); }}
+    class Snake extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=2; this.baseMaxForce=0.15; this.size=15; this.searchRadius=150; this.hungerRate=10; this.hungerThreshold=60; this.maxAge=200; this.maxDaysWithoutFood = 12;} eat(){this.hunger=max(0, this.hunger-80);} display() { push(); stroke('yellow'); strokeWeight(4); let dir=this.velocity.copy().normalize(); line(this.position.x,this.position.y,this.position.x-dir.x*this.size,this.position.y-dir.y*this.size); pop(); this.displayState(); this.displayHoverStats();}}
+    class Hawk extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=3.5; this.baseMaxForce=0.25; this.size=12; this.searchRadius=250; this.hungerRate=5; this.hungerThreshold=70; this.maxAge=400; this.maxDaysWithoutFood = 12;} eat(){this.hunger=0;} display() { push(); translate(this.position.x,this.position.y); rotate(this.velocity.heading()+PI/2); noStroke(); fill('saddlebrown'); beginShape(); vertex(0, -this.size); vertex(-this.size/2, this.size); vertex(this.size/2, this.size); endShape(CLOSE); pop(); this.displayState(); this.displayHoverStats();}}
+
+    // --- Simulation ---
+    function toggleSimulation() { isSimulating = !isSimulating; if(isSimulating) { document.getElementById('main-button').innerHTML = 'Stop Simulation'; resetSimulation(); loop(); } else { document.getElementById('main-button').innerHTML = 'Start Simulation'; noLoop(); } }
+    function resetSimulation() {
+        dayCounter=0; dayStartTime=millis(); weeklyHistory=[];
+        setWorldSize();
+        populations = { plants:[], butterflies:[], frogs:[], snakes:[], hawks:[] };
+        const createPopulation=(arr,Cls,count)=>{for(let i=0;i<count;i++){let pos=getSafeSpawnPoint();arr.push(new Cls(pos.x,pos.y,i%2===0?'male':'female'));}};
+        createPopulation(populations.plants,Plant,parseInt(initialInputs.plants.value));
+        createPopulation(populations.butterflies,Butterfly,parseInt(initialInputs.butterflies.value));
+        createPopulation(populations.frogs,Frog,parseInt(initialInputs.frogs.value));
+        createPopulation(populations.snakes,Snake,parseInt(initialInputs.snakes.value));
+        createPopulation(populations.hawks,Hawk,parseInt(initialInputs.hawks.value));
+        generateEnvironment();
+    }
+    function runSimulationStep() {
+        let qTrees = { hidingSpots: new QuadTree(new Rectangle(worldWidth/2,worldHeight/2,worldWidth/2,worldHeight/2), 4) };
+        for (const item of backgroundTrees) qTrees.hidingSpots.insert(new Point(item.position.x, item.position.y, item));
+        for (const key in populations) { qTrees[key] = new QuadTree(new Rectangle(worldWidth/2,worldHeight/2,worldWidth/2,worldHeight/2), 4); for(const item of populations[key]) qTrees[key].insert(new Point(item.position.x, item.position.y, item)); }
+        const findMates = (arr,self) => arr.filter(a => a.gender!==self.gender && a.isReadyToMate());
+        populations.butterflies.forEach(o => {o.applyBehaviors(qTrees.plants, qTrees.frogs, findMates(populations.butterflies,o), qTrees.hidingSpots); o.update();});
+        populations.frogs.forEach(o => {o.applyBehaviors(qTrees.butterflies, qTrees.snakes, findMates(populations.frogs,o), qTrees.hidingSpots); o.update();});
+        populations.snakes.forEach(o => {o.applyBehaviors(qTrees.frogs, qTrees.hawks, findMates(populations.snakes,o), qTrees.hidingSpots); o.update();});
+        populations.hawks.forEach(o => {o.applyBehaviors(qTrees.snakes, null, findMates(populations.hawks,o), qTrees.hidingSpots); o.update();});
+    }
+    
     function handleInteractions() {
-        const predation = (predators, prey) => {
-            for(let i = predators.length - 1; i>=0; i--) {
-                for(let j = prey.length-1; j>=0; j--) {
-                    if(predators[i].position.dist(prey[j].position) < (predators[i].size + prey[j].size) / 2) {
-                        prey.splice(j,1); predators[i].foodEaten++; return;
+        const predation = (predators, prey, predatorName, preyName) => { 
+            for(let i=predators.length-1;i>=0;i--){
+                if(!predators[i].isHungry()||predators[i].isHiding()) continue;
+                for(let j=prey.length-1;j>=0;j--){
+                    if(predators[i].position.dist(prey[j].position)<(predators[i].size+prey[j].size)/2){
+                        // Add specific logging for when a frog is eaten
+                        if (preyName === "Frog") {
+                            console.log(`A frog was eaten by a snake on day ${dayCounter}.`);
+                        }
+                        prey.splice(j,1);
+                        predators[i].eat();
+                        break; 
                     }
                 }
             }
         };
-        predation(populations.butterflies, populations.trees);
-        predation(populations.frogs, populations.butterflies);
-        predation(populations.snakes, populations.frogs);
-        predation(populations.hawks, populations.snakes);
+        predation(populations.frogs, populations.butterflies, "Frog", "Butterfly");
+        predation(populations.snakes, populations.frogs, "Snake", "Frog");
+        predation(populations.hawks, populations.snakes, "Hawk", "Snake");
+    }
+
+    const MATING_DISTANCE_THRESHOLD = 200;
+
+    /**
+     * Simulates reproduction for a given animal population.
+     * @param {Array} population - The array of animals to process.
+     * @param {class} AnimalClass - The class constructor (e.g., Butterfly, Frog) for creating offspring.
+     * @returns {void} - This function mutates the original population array.
+     */
+    const simulateReproduction = (population, AnimalClass) => {
+        // 1. Find all animals that are ready to mate
+        const readyMales = population.filter(animal => animal.gender === 'male' && animal.isReadyToMate());
+        const readyFemales = population.filter(animal => animal.gender === 'female' && animal.isReadyToMate());
+
+        // 2. Determine the maximum number of pairs
+        const numberOfPairings = Math.min(readyMales.length, readyFemales.length);
+        const newOffspring = [];
+        
+        // 3. Create pairs and check if they can reproduce
+        for (let i = 0; i < numberOfPairings; i++) {
+            const male = readyMales[i];
+            const female = readyFemales[i];
+            
+            // Check if the pair is close enough to mate
+            if (male.position.dist(female.position) < MATING_DISTANCE_THRESHOLD) {
+                const spawnPoint = getSafeSpawnPoint();
+                const gender = Math.random() > 0.5 ? 'male' : 'female';
+
+                // Create a new "baby" animal
+                newOffspring.push(new AnimalClass(spawnPoint.x, spawnPoint.y, gender));
+
+                // Reduce the parents' urge to mate
+                male.matingUrge -= 50;
+                female.matingUrge -= 50;
+            }
+        }
+        
+        // Log the results of the reproduction cycle for this species
+        if (newOffspring.length > 0) {
+            console.log(`${AnimalClass.name}s: ${newOffspring.length * 2} animals mated, producing ${newOffspring.length} new offspring.`);
+        }
+
+        // 4. Add all new offspring to the main population array
+        population.push(...newOffspring);
+    };
+
+    /**
+     * Spawns new plants in the environment.
+     * @param {Array} plantPopulation - The array of plants.
+     * @param {number} count - The number of new plants to create.
+     */
+    const spawnNewPlants = (plantPopulation, count) => {
+        for (let i = 0; i < count; i++) {
+            const spawnPoint = getSafeSpawnPoint();
+            plantPopulation.push(new Plant(spawnPoint.x, spawnPoint.y));
+        }
+    };
+
+    // ===================================================================
+    //
+    // CONFIGURATION - Central place for simulation parameters
+    //
+    // ===================================================================
+
+    const SIM_CONFIG = {
+        PLANT_CULL_INTERVAL_DAYS: 30,
+        PLANT_CULL_AMOUNT: 100,
+        PLANT_CULL_MINIMUM: 100,
+        HISTORY_LOGGING_INTERVAL_DAYS: 7,
+        NEW_PLANTS_PER_DAY: 5,
+    };
+
+    // A map to associate population keys with their corresponding classes
+    const animalClassMap = {
+        butterflies: Butterfly,
+        frogs: Frog,
+        snakes: Snake,
+        hawks: Hawk,
+    };
+
+    // ===================================================================
+    //
+    // HELPER FUNCTIONS - Each function has a single, clear purpose
+    //
+    // ===================================================================
+
+    /**
+     * Updates daily stats for each animal and removes any that have died of old age or starvation.
+     * @param {object} populations - The object containing all population arrays.
+     */
+    function updateAndCullAnimals(populations) {
+        for (const species of Object.keys(animalClassMap)) {
+            const population = populations[species];
+            // Iterate backwards because we are removing items from the array
+            for (let i = population.length - 1; i >= 0; i--) {
+                const animal = population[i];
+                animal.updateStats?.(); // Optional chaining: only call if updateStats exists
+
+                const isTooOld = animal.age > animal.maxAge;
+                const hasStarved = animal.maxDaysWithoutFood && animal.daysWithoutFood > animal.maxDaysWithoutFood;
+
+                if (isTooOld || hasStarved) {
+                    // Check if the dying animal is a frog for specific logging
+                    if (species === 'frogs') {
+                        if (isTooOld) {
+                            console.log(`A frog has died of old age on day ${dayCounter}. Age: ${animal.age}`);
+                        }
+                        if (hasStarved) {
+                            console.log(`A frog has starved to death on day ${dayCounter}. Days without food: ${animal.daysWithoutFood}`);
+                        }
+                    }
+                    population.splice(i, 1); // Remove the dead animal
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles periodic tasks like culling excess plants and logging weekly history.
+     * @param {number} dayCounter - The current day of the simulation.
+     * @param {object} populations - The main populations object.
+     * @param {Array} weeklyHistory - The array to store history logs.
+     */
+    function performPeriodicTasks(dayCounter, populations, weeklyHistory) {
+        // Every 30 days, cull 100 plants if the population is over 100
+        if (dayCounter % SIM_CONFIG.PLANT_CULL_INTERVAL_DAYS === 0 && populations.plants.length > SIM_CONFIG.PLANT_CULL_MINIMUM) {
+            populations.plants.splice(0, SIM_CONFIG.PLANT_CULL_AMOUNT);
+        }
+
+        // Every 7 days, log the population counts to the history
+        if (dayCounter > 0 && dayCounter % SIM_CONFIG.HISTORY_LOGGING_INTERVAL_DAYS === 0) {
+            const historyEntry = { week: dayCounter / SIM_CONFIG.HISTORY_LOGGING_INTERVAL_DAYS };
+            for (const species of Object.keys(animalClassMap)) {
+                historyEntry[species] = populations[species].length;
+            }
+            weeklyHistory.push(historyEntry);
+        }
+    }
+
+    /**
+     * Checks if any animal species has gone extinct.
+     * @param {object} populations - The main populations object.
+     * @returns {string|null} The name of the first extinct species found, or null.
+     */
+    function findExtinctSpecies(populations) {
+        for (const species of Object.keys(animalClassMap)) {
+            if (populations[species].length === 0) {
+                // Return the capitalized name, e.g., "butterflies" -> "Butterflies"
+                return species.charAt(0).toUpperCase() + species.slice(1);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Logs a summary of the current day's population counts to the console.
+     * @param {number} dayCounter
+     * @param {object} populations
+     */
+    function logDailySummary(dayCounter, populations) {
+        let summary = `Day ${dayCounter} End | Plants: ${populations.plants.length}`;
+        for (const species of Object.keys(animalClassMap)) {
+            summary += ` | ${species.charAt(0).toUpperCase() + species.slice(1)}: ${populations[species].length}`;
+        }
+        console.log(summary);
+    }
+
+    /**
+     * Handles the end of the simulation when a species goes extinct.
+     * @param {string} extinctSpecies - The name of the species that went extinct.
+     * @param {number} dayCounter - The current day.
+     */
+    function handleExtinction(extinctSpecies, dayCounter) {
+        if (isSimulating) {
+            const infoDisplay = document.getElementById('info-display');
+            infoDisplay.innerHTML = `Ecosystem collapsed on Day ${dayCounter}: ${extinctSpecies} went extinct.`;
+
+            if (shouldDownloadCSV) {
+                exportHistoryToCSV();
+            }
+            toggleSimulation(); // Stop the simulation
+        }
+    }
+   
+    // ===================================================================
+    //
+    // MAIN SIMULATION FUNCTION - Now clean and easy to read
+    //
+    // ===================================================================
+
+    function endOfDay() {
+        dayCounter++;
+
+        // 1. Update stats and remove dead animals
+        updateAndCullAnimals(populations);
+
+        // 2. Handle reproduction for all species (using the previously improved functions)
+        for (const [species, AnimalClass] of Object.entries(animalClassMap)) {
+            if (populations[species]) {
+                simulateReproduction(populations[species], AnimalClass);
+            }
+        }
+
+        // 3. Spawn new plants
+        spawnNewPlants(populations.plants, SIM_CONFIG.NEW_PLANTS_PER_DAY);
+
+        // 4. Handle infrequent tasks (plant culling, history logging)
+        performPeriodicTasks(dayCounter, populations, weeklyHistory);
+
+        // 5. Log daily status to the console
+        logDailySummary(dayCounter, populations);
+
+        // 6. Check for extinction and end the simulation if necessary
+        const extinctSpecies = findExtinctSpecies(populations);
+        if (extinctSpecies) {
+            handleExtinction(extinctSpecies, dayCounter);
+        }
+    }
+
+
+    
+    // --- UI & Data Export ---
+    let initialInputs = {};
+    function initializeUI() {
+        document.getElementById('main-button').addEventListener('click', toggleSimulation);
+        document.getElementById('mode-toggle').addEventListener('change', (e) => { simMode=e.target.checked?'hyper':'normal'; updateControlsView(); });
+        document.getElementById('day-length-slider').addEventListener('input', (e) => { dayLengthMillis=e.target.value*1000; document.getElementById('day-length-value').innerHTML=e.target.value; speedMultiplier=10/e.target.value; });
+        speedMultiplier=10/document.getElementById('day-length-slider').value;
+        document.getElementById('status-toggle').addEventListener('click', (e) => { showStatusBars=!showStatusBars; e.target.classList.toggle('active',showStatusBars); e.target.innerHTML=showStatusBars?'Hide Status':'Show Status'; });
+        document.getElementById('trees-toggle').addEventListener('click', (e) => { showBgTrees=!showBgTrees; e.target.classList.toggle('active',showBgTrees); e.target.innerHTML=showBgTrees?'Hide Trees':'Show Trees'; });
+        initialInputs={plants:document.getElementById('initial-plants'),butterflies:document.getElementById('initial-butterflies'),frogs:document.getElementById('initial-frogs'),snakes:document.getElementById('initial-snakes'),hawks:document.getElementById('initial-hawks')};
     }
     
-    function endOfDay() {
-        const reproduce = (speciesArray, SpeciesClass) => {
-            const newBabies=[]; let males=speciesArray.filter(a=>a.gender==='male'&&a.foodEaten>0); let females=speciesArray.filter(a=>a.gender==='female'&&a.foodEaten>0);
-            let pairings=min(males.length,females.length);
-            for(let i=0;i<pairings;i++){ let p1=males[i], p2=females[i]; if(p1.position.dist(p2.position)<30){let pos=p5.Vector.add(p1.position,p2.position).div(2);newBabies.push(new SpeciesClass(pos.x,pos.y,random()>0.5?'male':'female'));}}
-            speciesArray.push(...newBabies); speciesArray.forEach(a=>a.foodEaten=0);
-        };
-        reproduce(populations.butterflies,Butterfly); reproduce(populations.frogs,Frog); reproduce(populations.snakes,Snake); reproduce(populations.hawks,Hawk);
-        
-        for(let i=0;i<5;i++) populations.trees.push(new Tree(random(width),random(height)));
-        if(dayCounter % 30 === 0 && populations.trees.length > 100) { populations.trees.splice(0,100); }
-        
-        // **FIX**: Check for extinction and provide a clear message
-        let extinctSpecies = null;
-        if (populations.butterflies.length === 0) extinctSpecies = "Butterflies";
-        else if (populations.frogs.length === 0) extinctSpecies = "Frogs";
-        else if (populations.snakes.length === 0) extinctSpecies = "Snakes";
-        else if (populations.hawks.length === 0) extinctSpecies = "Hawks";
-
-        if (extinctSpecies && isSimulating) {
-            infoDisplay.html(`Ecosystem collapsed on Day ${dayCounter}: ${extinctSpecies} went extinct.`);
-            toggleSimulation(); // This stops the simulation
-        }
+    function updateControlsView() {
+        const normalEl=document.getElementById('normal-controls'),hyperEl=document.getElementById('hyper-controls');
+        if (simMode==='hyper'){normalEl.classList.add('hidden');hyperEl.classList.remove('hidden');}else{normalEl.classList.remove('hidden');hyperEl.classList.add('hidden');}
     }
 
     function updateInfoDisplay() {
-        if (!infoDisplay) return;
-        // Don't update the info display if the simulation has stopped due to extinction
-        if (!isSimulating && infoDisplay.html().includes("collapsed")) {
-            return;
+        const infoEl=document.getElementById('info-display'); if(!infoEl)return; if(!isSimulating&&infoEl.innerHTML.includes("collapsed"))return;
+        let p=populations,counts=`🌿:${p.plants.length} | 🦋:${p.butterflies.length} | 🐸:${p.frogs.length} | 🐍:${p.snakes.length} | 🦅:${p.hawks.length}`;
+        if(simMode==='hyper'&&isSimulating){const total=parseInt(document.getElementById('years-input').value)*365;infoEl.innerHTML=`Simulating Day: ${dayCounter}/${total} | ${counts}`;}else{infoEl.innerHTML=`Day: ${dayCounter} | ${counts}`;}}
+
+    function exportHistoryToCSV() {
+        let csv="data:text/csv;charset=utf-8,Week,Butterflies,Frogs,Snakes,Hawks\n";
+        weeklyHistory.forEach(r=>{csv+=`${r.week},${r.butterflies},${r.frogs},${r.snakes},${r.hawks}\n`;});
+        const link=document.createElement("a");link.setAttribute("href",encodeURI(csv));link.setAttribute("download","population_history.csv");document.body.appendChild(link);link.click();document.body.removeChild(link);
+    }
+    
+    // --- Sketch & Camera ---
+    let isSimulating=false,dayCounter=0,dayStartTime,populations={plants:[],butterflies:[],frogs:[],snakes:[],hawks:[]},simMode='normal',dayLengthMillis=10000,speedMultiplier=1,showStatusBars=false, showBgTrees=true, weeklyHistory=[],ponds=[],backgroundTrees=[],riverPoints=[];
+    let worldWidth, worldHeight;
+    let camera = { x: 0, y: 0, zoom: 1 };
+    let panStart = { x: 0, y: 0 };
+    let isPanning = false;
+    let shouldDownloadCSV = true;
+
+    function setWorldSize() {
+        const size = document.getElementById('map-size-select').value;
+        if(size === 'small') { worldWidth = 1200; worldHeight = 800; }
+        else if(size === 'large') { worldWidth = 2400; worldHeight = 1600; }
+        else { worldWidth = 1800; worldHeight = 1200; }
+        camera.x = worldWidth / 2;
+        camera.y = worldHeight / 2;
+    }
+
+    function getSafeSpawnPoint() {
+        let point, attempts = 0;
+        do {
+            point = createVector(random(worldWidth), random(worldHeight));
+            attempts++;
+        } while (isPosInWater(point, 15) && attempts < 100); 
+        return point;
+    }
+    
+    function isPosInWater(pos, buffer = 0) {
+        for(const pond of ponds){if(pos.dist(pond.position)<pond.size.x/2 + buffer)return true;}
+        return false;
+    }
+
+    function screenToWorld(x, y) { return { x: (x - width / 2) / camera.zoom + camera.x, y: (y - height / 2) / camera.zoom + camera.y }; }
+    function generateEnvironment() {
+        let numPonds, numTrees;
+        noiseSeed(millis());
+        
+        if (worldWidth === 1200) { numPonds = floor(random(1, 2)); }
+        else if (worldWidth === 2400) { numPonds = floor(random(1, 4)); }
+        else { numPonds = floor(random(1, 3)); }
+        
+        ponds = []; for(let i=0; i<numPonds; i++) {
+            let p = { position: getSafeSpawnPoint(), size: {x: random(40,100), y: random(30,60)}, vertices: [] };
+            let yoff_pond = random(100);
+            for (let angle = 0; angle < TWO_PI; angle += 0.5) { let r = map(noise(yoff_pond), 0, 1, 0.8, 1.2); p.vertices.push(createVector(cos(angle) * (p.size.x/2 * r), sin(angle) * (p.size.y/2 * r))); yoff_pond += 0.2; }
+            ponds.push(p);
         }
-        let p = populations;
-        let counts = `🌳:${p.trees.length} | 🦋:${p.butterflies.length} | 🐸:${p.frogs.length} | 🐍:${p.snakes.length} | 🦅:${p.hawks.length}`;
-        if(simMode === 'hyper' && isSimulating) {
-            infoDisplay.html(`Simulating Day: ${dayCounter} / ${hyperSimTotalDays} | ${counts}`);
-        } else {
-            infoDisplay.html(`Day: ${dayCounter} | ${counts}`);
+        backgroundTrees = []; let spacing = 75;
+        for (let x = 0; x < worldWidth + spacing; x += spacing) {
+            for (let y = 0; y < worldHeight + spacing; y += spacing) {
+                let pos = createVector(x + random(-spacing/2, spacing/2), y + random(-spacing/2, spacing/2));
+                if (!isPosInWater(pos, 20)) { 
+                    backgroundTrees.push({position: pos, size: random(20,40), color: color(0,random(80,120),0)});
+                }
+            }
+        }
+    }
+    
+    function drawEnvironment() {
+        ponds.forEach(p => { 
+            push();
+            translate(p.position.x, p.position.y);
+            fill(65,105,225); noStroke();
+            beginShape(); for (const v of p.vertices) vertex(v.x, v.y); endShape(CLOSE);
+            pop();
+        });
+        if(showBgTrees){
+             backgroundTrees.forEach(t => { noStroke(); fill(t.color); ellipse(t.position.x, t.position.y, t.size); });
         }
     }
 
-    function windowResized() {
-        let canvasContainer = select('#canvas-container');
-        let canvasWidth = canvasContainer.width;
-        let canvasHeight = windowHeight * 0.5;
-        resizeCanvas(canvasWidth, canvasHeight);
+    function setup() {
+        let canvasContainer = select('#canvas-container'); let canvas = createCanvas(canvasContainer.width, 500); canvas.parent('canvas-container');
+        let canvasEl = document.querySelector('#canvas-container canvas');
+        canvasEl.addEventListener('mousedown', (e) => { isPanning=true; panStart.x = e.clientX; panStart.y = e.clientY; });
+        canvasEl.addEventListener('mousemove', (e) => { if(isPanning){ camera.x -= (e.clientX-panStart.x)/camera.zoom; camera.y -= (e.clientY-panStart.y)/camera.zoom; panStart.x=e.clientX; panStart.y=e.clientY; }});
+        canvasEl.addEventListener('mouseup', () => { isPanning = false; });
+        canvasEl.addEventListener('mouseout', () => { isPanning = false; });
+        canvasEl.addEventListener('wheel', (e) => { e.preventDefault(); let zoomFactor=0.001; let oldZoom=camera.zoom; camera.zoom -= e.deltaY * zoomFactor; camera.zoom = constrain(camera.zoom, 0.1, 5); let m=screenToWorld(mouseX,mouseY); camera.x = m.x + (camera.x - m.x) * (oldZoom/camera.zoom); camera.y = m.y + (camera.y - m.y) * (oldZoom/camera.zoom); });
+        
+        initializeUI(); updateControlsView(); noLoop();
     }
+
+    function draw() {
+        background(10, 50, 10);
+        
+        translate(width/2, height/2); scale(camera.zoom); translate(-camera.x, -camera.y);
+        
+        noFill(); stroke(100); strokeWeight(2/camera.zoom); rect(0,0,worldWidth,worldHeight);
+        drawEnvironment();
+        
+        if(isSimulating) {
+            if (simMode === 'normal') {
+                runSimulationStep(); 
+                const timeElapsed = millis() - dayStartTime;
+                if (timeElapsed > dayLengthMillis) { handleInteractions(); endOfDay(); dayStartTime = millis(); }
+            } else { 
+                const totalDays = parseInt(document.getElementById('years-input').value) * 365;
+                for(let i=0; i < 10; i++) { // Run 10 days per frame for speed
+                    if(dayCounter >= totalDays || !isSimulating) { if(isSimulating) toggleSimulation(); break; }
+                    runSimulationStep(); handleInteractions(); endOfDay();
+                }
+            }
+        }
+        
+        Object.values(populations).flat().forEach(o=>o.display());
+        updateInfoDisplay();
+    }
+
+    function windowResized() { resizeCanvas(select('#canvas-container').width, 500); }
     </script>
 </body>
 </html>
