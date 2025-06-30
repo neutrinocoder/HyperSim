@@ -28,7 +28,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                         </svg>
-                        Upload New CSV
+                        Upload CSV
                     </label>
                     <input type="file" id="csvFileInput" class="hidden" accept=".csv">
                 </div>
@@ -65,31 +65,9 @@
             hawks: 'rgba(249, 115, 22, 0.1)'
         };
 
-        // --- Initial data from the provided CSV file ---
-        const initialCsvData = `Weeks,Butterflies,Frogs,Snakes,Hawks
-0,1000,100,10,2
-1,1200,110,11,3
-2,1500,130,12,3
-3,1800,150,14,4
-4,2000,180,16,5
-5,1900,200,19,6
-6,1700,210,21,7
-7,1500,200,22,8
-8,1300,180,21,9
-9,1100,160,20,8
-10,1000,150,18,7
-11,950,145,17,6
-12,900,140,16,5
-13,880,138,15,5
-14,870,135,14,4
-15,900,130,13,4
-16,950,125,12,3
-17,1050,120,11,3
-18,1200,115,11,2
-19,1400,110,10,2`;
-
         // Function to parse CSV data and create the chart
         function createChart(csvData) {
+            console.log("Parsing CSV data...");
             Papa.parse(csvData, {
                 header: true,
                 dynamicTyping: true,
@@ -102,22 +80,38 @@
                     }
                     
                     const data = results.data;
+                    console.log("CSV parsed. Found", data.length, "rows.");
 
-                    // Validate required columns
+                    // --- Robust Header Validation ---
                     const requiredColumns = ['Weeks', 'Butterflies', 'Frogs', 'Snakes', 'Hawks'];
-                    const headers = results.meta.fields;
-                    for(const col of requiredColumns){
-                        if(!headers.includes(col)){
-                            messageArea.textContent = `CSV file is missing the required column: "${col}". Please check your file.`;
-                            return;
+                    const fileHeaders = results.meta.fields;
+                    const headerMap = {};
+                    
+                    const fileHeadersNormalized = fileHeaders.map(h => h.trim().toLowerCase());
+
+                    for (const reqCol of requiredColumns) {
+                        const reqColLower = reqCol.toLowerCase();
+                        const foundIndex = fileHeadersNormalized.indexOf(reqColLower);
+
+                        if (foundIndex !== -1) {
+                            // Map our required name (e.g., 'Butterflies') to the actual name from the file (e.g., 'butterflies ').
+                            headerMap[reqCol] = fileHeaders[foundIndex];
+                        } else {
+                            // If a required column is not found
+                            messageArea.textContent = `CSV file is missing the required column: "${reqCol}". Please check headers for typos, extra spaces, or case differences.`;
+                            console.error(`Missing required column: ${reqCol}`);
+                            return; // Stop processing
                         }
                     }
+                    
+                    console.log("Validation passed. Preparing datasets.");
 
-                    const labels = data.map(row => row.Weeks);
-                    const butterfliesData = data.map(row => row.Butterflies);
-                    const frogsData = data.map(row => row.Frogs);
-                    const snakesData = data.map(row => row.Snakes);
-                    const hawksData = data.map(row => row.Hawks);
+                    // Use the headerMap to correctly access data, respecting original headers
+                    const labels = data.map(row => row[headerMap['Weeks']]);
+                    const butterfliesData = data.map(row => row[headerMap['Butterflies']]);
+                    const frogsData = data.map(row => row[headerMap['Frogs']]);
+                    const snakesData = data.map(row => row[headerMap['Snakes']]);
+                    const hawksData = data.map(row => row[headerMap['Hawks']]);
 
                     const datasets = [
                         {
@@ -153,19 +147,21 @@
                             fill: true,
                         }
                     ];
-
+                    
+                    console.log("Datasets created. Drawing chart.");
                     drawChart(labels, datasets);
-                    messageArea.textContent = 'Chart updated successfully.';
                 }
             });
         }
         
         // Function to draw or update the chart
         function drawChart(labels, datasets) {
+            // If a chart instance exists, destroy it before drawing a new one.
             if (populationChart) {
+                console.log("Destroying existing chart instance.");
                 populationChart.destroy();
             }
-
+            console.log("Creating new chart instance.");
             populationChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -228,24 +224,27 @@
             const file = event.target.files[0];
             if (file) {
                 if (file.type === "text/csv") {
+                    messageArea.textContent = `Reading file: ${file.name}...`;
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         const text = e.target.result;
                         createChart(text);
-                        messageArea.textContent = `Loaded data from ${file.name}.`;
+                        messageArea.textContent = `Chart updated with data from ${file.name}.`;
                     };
                     reader.readAsText(file);
                 } else {
                     messageArea.textContent = 'Please upload a valid .csv file.';
                 }
+                // Reset the file input to allow re-uploading the same file
+                event.target.value = null;
             }
         });
         
         // --- On Load ---
-        // Load the initial data when the page loads
+        // Draw an empty chart on initial load and prompt user to upload a file.
         window.onload = () => {
-             createChart(initialCsvData);
-             messageArea.textContent = 'Showing default data. Upload your own CSV to update the chart.';
+             drawChart([], []);
+             messageArea.textContent = 'Please upload a CSV file to generate a graph.';
         };
 
     </script>
