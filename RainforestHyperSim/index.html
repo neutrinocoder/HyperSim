@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rainforest Ecosystem Simulator</title>
-    <!-- p5.js script loads first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
         :root {
@@ -19,18 +18,18 @@
             height: 100%;
         }
         body {
-            min-height: 100vh; /* Use min-height to allow content to expand */
+            min-height: 100vh;
             margin: 0;
             padding: 0;
             background-color: var(--dark-bg);
             font-family: 'Arial', sans-serif;
             color: var(--text-color);
-            display: flex; /* Use flexbox for centering */
+            display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px; /* Add some padding for small screens */
+            padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto; /* Enable vertical scrolling for the whole page */
+            overflow-y: auto;
         }
         main {
             display: flex;
@@ -43,6 +42,10 @@
         #canvas-container { 
             flex-shrink: 0; 
             width: 100%;
+            cursor: grab;
+        }
+        #canvas-container:active {
+            cursor: grabbing;
         }
         canvas {
             display: block;
@@ -50,7 +53,7 @@
             border-radius: 8px;
             box-shadow: 0 0 20px rgba(40, 180, 99, 0.3);
             max-width: 100%;
-            height: auto; /* Adjust height automatically */
+            height: auto;
         }
         .controls {
             background-color: var(--medium-bg);
@@ -83,7 +86,7 @@
             width: 100%;
             max-width: 600px;
         }
-        .input-group {
+        .input-group, .map-size-group {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -101,7 +104,19 @@
         #main-button { background-color: var(--accent-green); }
         #main-button:hover { background-color: #218838; }
         .hidden { display: none; }
-        .mode-switch { display: flex; gap: 10px; align-items: center; }
+        .mode-switch { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;}
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        .toggle-button {
+            background-color: var(--light-bg);
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .toggle-button.active {
+            background-color: var(--accent-blue);
+        }
     </style>
 </head>
 <body>
@@ -115,18 +130,30 @@
                 <label>Normal Mode</label>
                 <input type="checkbox" id="mode-toggle">
                 <label>Hyper Mode</label>
+                <button id="status-toggle" class="toggle-button">Show Status</button>
+                <button id="trees-toggle" class="toggle-button active">Show Trees</button>
+                <button id="download-toggle" class="toggle-button active">Download on Collapse</button>
+            </div>
+            
+            <div class="map-size-group">
+                <label>Map Size:</label>
+                <select id="map-size-select">
+                    <option value="small">Small (1200x800)</option>
+                    <option value="medium" selected>Medium (1800x1200)</option>
+                    <option value="large">Large (2400x1600)</option>
+                </select>
             </div>
 
             <div class="settings-grid">
-                <div class="input-group"><label for="initial-trees">Trees:</label><input type="number" id="initial-trees" value="100" min="0"></div>
+                <div class="input-group"><label for="initial-plants">Plants:</label><input type="number" id="initial-plants" value="100" min="0"></div>
                 <div class="input-group"><label for="initial-butterflies">Butterflies:</label><input type="number" id="initial-butterflies" value="40" min="0"></div>
-                <div class="input-group"><label for="initial-frogs">Frogs:</label><input type="number" id="initial-frogs" value="15" min="0"></div>
-                <div class="input-group"><label for="initial-snakes">Snakes:</label><input type="number" id="initial-snakes" value="5" min="0"></div>
+                <div class="input-group"><label for="initial-frogs">Frogs:</label><input type="number" id="initial-frogs" value="12" min="0"></div>
+                <div class="input-group"><label for="initial-snakes">Snakes:</label><input type="number" id="initial-snakes" value="3" min="0"></div>
                 <div class="input-group"><label for="initial-hawks">Hawks:</label><input type="number" id="initial-hawks" value="2" min="0"></div>
             </div>
 
             <div id="normal-controls">
-                <label for="day-length-slider">Day Length: <span id="day-length-value">10</span>s</label>
+                <label for="day-length-slider">Day Length (Speed): <span id="day-length-value">10</span>s</label>
                 <input type="range" id="day-length-slider" min="1" max="30" value="10">
             </div>
             <div id="hyper-controls" class="hidden">
@@ -136,18 +163,17 @@
                 </div>
             </div>
 
-            <button id="main-button">Start Simulation</button>
+            <div class="button-group">
+                <button id="main-button">Start Simulation</button>
+            </div>
         </div>
     </main>
 
-    <!-- **FIXED SCRIPT ORDER & CASE** -->
-    <!-- Ensures filenames match exactly (all lowercase is best practice) -->
     <script src="js/quadtree.js" defer></script>
     <script src="js/animal.js" defer></script>
     <script src="js/species.js" defer></script>
     <script src="js/simulation.js" defer></script>
     <script src="js/ui.js" defer></script>
     <script src="js/sketch.js" defer></script>
-
 </body>
 </html>
