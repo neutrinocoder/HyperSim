@@ -72,6 +72,11 @@
                 header: true,
                 dynamicTyping: true,
                 skipEmptyLines: true,
+                // This transformHeader function is a robust way to clean up headers.
+                // It's applied to each header before parsing is complete.
+                transformHeader: function(header) {
+                    return header.trim().toLowerCase();
+                },
                 complete: function(results) {
                     if (results.errors.length > 0) {
                         messageArea.textContent = 'Error parsing CSV file: ' + results.errors[0].message;
@@ -80,38 +85,31 @@
                     }
                     
                     const data = results.data;
-                    console.log("CSV parsed. Found", data.length, "rows.");
+                    const fileHeaders = results.meta.fields; // These headers are already transformed.
+                    console.log("CSV parsed. Found", data.length, "rows. Transformed headers:", fileHeaders);
 
                     // --- Robust Header Validation ---
-                    const requiredColumns = ['Weeks', 'Butterflies', 'Frogs', 'Snakes', 'Hawks'];
-                    const fileHeaders = results.meta.fields;
-                    const headerMap = {};
+                    // We now check against the lowercase, trimmed version of the required columns.
+                    const requiredColumns = ['day', 'butterflies', 'frogs', 'snakes', 'hawks'];
                     
-                    const fileHeadersNormalized = fileHeaders.map(h => h.trim().toLowerCase());
-
                     for (const reqCol of requiredColumns) {
-                        const reqColLower = reqCol.toLowerCase();
-                        const foundIndex = fileHeadersNormalized.indexOf(reqColLower);
-
-                        if (foundIndex !== -1) {
-                            // Map our required name (e.g., 'Butterflies') to the actual name from the file (e.g., 'butterflies ').
-                            headerMap[reqCol] = fileHeaders[foundIndex];
-                        } else {
-                            // If a required column is not found
-                            messageArea.textContent = `CSV file is missing the required column: "${reqCol}". Please check headers for typos, extra spaces, or case differences.`;
-                            console.error(`Missing required column: ${reqCol}`);
+                        if (!fileHeaders.includes(reqCol)) {
+                            // If a required column is not found after transformation
+                            const originalHeaders = Object.keys(data[0] || {});
+                            messageArea.textContent = `CSV file is missing or has a misnamed required column: "${reqCol}". Please check your file's headers.`;
+                            console.error(`Missing required column: "${reqCol}". Detected headers are: [${originalHeaders.join(', ')}]`);
                             return; // Stop processing
                         }
                     }
                     
                     console.log("Validation passed. Preparing datasets.");
 
-                    // Use the headerMap to correctly access data, respecting original headers
-                    const labels = data.map(row => row[headerMap['Weeks']]);
-                    const butterfliesData = data.map(row => row[headerMap['Butterflies']]);
-                    const frogsData = data.map(row => row[headerMap['Frogs']]);
-                    const snakesData = data.map(row => row[headerMap['Snakes']]);
-                    const hawksData = data.map(row => row[headerMap['Hawks']]);
+                    // Use the transformed (lowercase) headers to access data, which is now much simpler.
+                    const labels = data.map(row => row.day);
+                    const butterfliesData = data.map(row => row.butterflies);
+                    const frogsData = data.map(row => row.frogs);
+                    const snakesData = data.map(row => row.snakes);
+                    const hawksData = data.map(row => row.hawks);
 
                     const datasets = [
                         {
@@ -199,7 +197,7 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'Weeks',
+                                text: 'Day',
                                 color: document.body.classList.contains('dark') ? '#9CA3AF' : '#6B7280',
                                 font: { size: 16, weight: '500' }
                             },
@@ -229,7 +227,7 @@
                     reader.onload = function(e) {
                         const text = e.target.result;
                         createChart(text);
-                        messageArea.textContent = `Chart updated with data from ${file.name}.`;
+                        // The message in createChart will take precedence on success or failure.
                     };
                     reader.readAsText(file);
                 } else {
