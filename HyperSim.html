@@ -13,6 +13,7 @@
             --text-color: #e0e0e0;
             --accent-green: #28a745;
             --accent-blue: #007bff;
+            --disaster-red: #dc3545;
         }
         html {
             height: 100%;
@@ -81,10 +82,44 @@
         }
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 10px 20px;
             width: 100%;
-            max-width: 600px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .disaster-config-section {
+            border: 1px solid var(--disaster-red);
+            border-radius: 8px;
+            padding: 15px;
+            width: 100%;
+        }
+        .disaster-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+        .disaster-card {
+            background-color: var(--light-bg);
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        h3, h4 {
+            grid-column: 1 / -1;
+            margin: 5px 0;
+            color: var(--accent-green);
+            text-align: center;
+        }
+        .disaster-config-section h3 {
+             color: var(--disaster-red);
+        }
+        .disaster-card h4 {
+            color: #ddd;
+            margin-bottom: 5px;
         }
         .input-group, .map-size-group {
             display: flex;
@@ -92,22 +127,31 @@
             justify-content: space-between;
             gap: 10px;
         }
-        label { font-size: 1em; color: #ccc; }
-        input[type="number"], input[type="range"] {
+        label { font-size: 0.9em; color: #ccc; text-align: left;}
+        input[type="number"], input[type="range"], select {
             background-color: #444; border: 1px solid #666; color: #fff; border-radius: 4px; padding: 5px;
         }
         input[type="number"] { width: 60px; }
+        input[type="range"] { flex-grow: 1; }
         button {
             color: white; border: none; padding: 12px 25px; border-radius: 5px;
             font-size: 1.1em; cursor: pointer; transition: background-color 0.3s;
         }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
         #main-button { background-color: var(--accent-green); }
         #main-button:hover { background-color: #218838; }
+        .trigger-button { background-color: var(--disaster-red); font-size: 0.8em; padding: 6px 12px; width: 100%; margin-top: 5px;}
+        .trigger-button:hover:not(:disabled) { background-color: #c82333; }
         .hidden { display: none; }
         .mode-switch { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;}
         .button-group {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         .toggle-button {
             background-color: var(--light-bg);
@@ -134,16 +178,16 @@
                 <button id="trees-toggle" class="toggle-button active">Show Trees</button>
             </div>
             
-            <div class="map-size-group">
-                <label>Map Size:</label>
-                <select id="map-size-select">
-                    <option value="small">Small (1200x800)</option>
-                    <option value="medium" selected>Medium (1800x1200)</option>
-                    <option value="large">Large (2400x1600)</option>
-                </select>
-            </div>
-
             <div class="settings-grid">
+                 <h3>Initial Setup</h3>
+                 <div class="map-size-group">
+                    <label>Map Size:</label>
+                    <select id="map-size-select">
+                        <option value="small">Small (1200x800)</option>
+                        <option value="medium" selected>Medium (1800x1200)</option>
+                        <option value="large">Large (2400x1600)</option>
+                    </select>
+                </div>
                 <div class="input-group"><label for="initial-plants">Plants:</label><input type="number" id="initial-plants" value="100" min="0"></div>
                 <div class="input-group"><label for="initial-butterflies">Butterflies:</label><input type="number" id="initial-butterflies" value="40" min="0"></div>
                 <div class="input-group"><label for="initial-frogs">Frogs:</label><input type="number" id="initial-frogs" value="12" min="0"></div>
@@ -157,10 +201,47 @@
             </div>
             <div id="hyper-controls" class="hidden">
                 <div class="input-group">
-                    <label for="years-input">Simulate for:</label>
-                    <input type="number" id="years-input" value="10" min="1"> <span>Years</span>
+                    <label for="duration-input">Simulate for:</label>
+                    <input type="number" id="duration-input" value="10" min="1">
+                    <select id="duration-unit">
+                        <option value="years">Years</option>
+                        <option value="days">Days</option>
+                    </select>
                 </div>
             </div>
+             
+             <div class="disaster-config-section">
+                <h3>Disaster Configuration</h3>
+                <div class="disaster-grid">
+                    <div class="disaster-card">
+                        <h4>Drought</h4>
+                        <div class="input-group"><label for="drought-chance">Chance (%):</label><input type="range" id="drought-chance" value="0" min="0" max="100"></div>
+                        <div class="input-group"><label for="drought-area">Area (%):</label><input type="range" id="drought-area" value="30" min="10" max="100"></div>
+                        <button class="trigger-button" id="trigger-drought">Trigger Drought</button>
+                    </div>
+                     <div class="disaster-card">
+                        <h4>Forest Fire</h4>
+                        <div class="input-group"><label for="fire-chance">Chance (%):</label><input type="range" id="fire-chance" value="0" min="0" max="100"></div>
+                        <div class="input-group"><label for="fire-size">Initial Size:</label><input type="range" id="fire-size" value="50" min="10" max="200"></div>
+                        <button class="trigger-button" id="trigger-fire">Trigger Fire</button>
+                    </div>
+                     <div class="disaster-card">
+                        <h4>Poaching</h4>
+                        <div class="input-group"><label for="poaching-chance">Chance (%):</label><input type="range" id="poaching-chance" value="0" min="0" max="100"></div>
+                        <div class="input-group"><label for="poaching-num">Poachers:</label><input type="range" id="poaching-num" value="2" min="1" max="10"></div>
+                        <div class="input-group"><label for="poaching-duration">Duration (days):</label><input type="range" id="poaching-duration" value="5" min="1" max="20"></div>
+                        <button class="trigger-button" id="trigger-poaching">Trigger Poaching</button>
+                    </div>
+                     <div class="disaster-card">
+                        <h4>Deforestation</h4>
+                        <div class="input-group"><label for="deforestation-chance">Chance (%):</label><input type="range" id="deforestation-chance" value="0" min="0" max="100"></div>
+                        <div class="input-group"><label for="deforestation-num">Deforesters:</label><input type="range" id="deforestation-num" value="2" min="1" max="10"></div>
+                        <div class="input-group"><label for="deforestation-duration">Duration (days):</label><input type="range" id="deforestation-duration" value="5" min="1" max="20"></div>
+                        <button class="trigger-button" id="trigger-deforestation">Trigger Deforestation</button>
+                    </div>
+                </div>
+             </div>
+
 
             <div class="button-group">
                 <button id="main-button">Start Simulation</button>
@@ -169,7 +250,7 @@
     </main>
 
     <script>
-    // --- QuadTree ---
+    // --- QuadTree, Point, Rectangle (No Changes) ---
     class Point { constructor(x, y, userData) { this.x = x; this.y = y; this.userData = userData; } }
     class Rectangle {
         constructor(x, y, w, h) { this.x = x; this.y = y; this.w = w; this.h = h; }
@@ -199,7 +280,7 @@
         }
     }
 
-    // --- Animal ---
+    // --- Animal (No Changes) ---
     class Animal {
         constructor(x, y, gender) {
             this.position = createVector(x, y);
@@ -295,17 +376,118 @@
         }
     }
 
-    // --- Species ---
+    // --- Species (No Changes) ---
     class Plant { constructor(x, y) { this.position = createVector(x,y); this.size=random(5,15); } display() { noStroke(); fill(0,100,0); ellipse(this.position.x,this.position.y,this.size,this.size);}}
     class Butterfly extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=2; this.baseMaxForce=0.1; this.size=8; this.searchRadius=100; this.hungerRate=0; this.maxAge = 10;} isHungry() {return false;} display() { noStroke(); fill('pink'); ellipse(this.position.x, this.position.y, this.size, this.size); this.displayState(); this.displayHoverStats(); }}
     class Frog extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=2.5; this.baseMaxForce=0.2; this.size=12; this.searchRadius=120; this.hungerRate=15; this.hungerThreshold=50; this.maxAge=100; this.maxDaysWithoutFood = 12;} eat() {this.hunger=max(0, this.hunger-60);} display() { noStroke(); fill('darkgreen'); ellipse(this.position.x, this.position.y, this.size, this.size); this.displayState(); this.displayHoverStats(); }}
     class Snake extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=2; this.baseMaxForce=0.15; this.size=15; this.searchRadius=150; this.hungerRate=10; this.hungerThreshold=60; this.maxAge=200; this.maxDaysWithoutFood = 12;} eat(){this.hunger=max(0, this.hunger-80);} display() { push(); stroke('yellow'); strokeWeight(4); let dir=this.velocity.copy().normalize(); line(this.position.x,this.position.y,this.position.x-dir.x*this.size,this.position.y-dir.y*this.size); pop(); this.displayState(); this.displayHoverStats();}}
     class Hawk extends Animal { constructor(x,y,g) { super(x,y,g); this.baseMaxSpeed=3.5; this.baseMaxForce=0.25; this.size=12; this.searchRadius=250; this.hungerRate=5; this.hungerThreshold=70; this.maxAge=400; this.maxDaysWithoutFood = 12;} eat(){this.hunger=0;} display() { push(); translate(this.position.x,this.position.y); rotate(this.velocity.heading()+PI/2); noStroke(); fill('saddlebrown'); beginShape(); vertex(0, -this.size); vertex(-this.size/2, this.size); vertex(this.size/2, this.size); endShape(CLOSE); pop(); this.displayState(); this.displayHoverStats();}}
 
+    // --- Disaster-related Humanoids ---
+    class Humanoid {
+        constructor(x, y, durationDays) {
+            this.position = createVector(x, y);
+            this.velocity = p5.Vector.random2D().mult(2);
+            this.acceleration = createVector();
+            this.size = 15;
+            this.maxSpeed = 2;
+            this.maxForce = 0.2;
+            this.daysActive = 0;
+            this.duration = durationDays;
+        }
+        
+        seek(targetVector) { 
+            let desired = p5.Vector.sub(targetVector, this.position);
+            desired.setMag(this.maxSpeed);
+            let steer = p5.Vector.sub(desired, this.velocity);
+            steer.limit(this.maxForce);
+            return steer;
+        }
+
+        update() {
+            this.velocity.add(this.acceleration);
+            this.velocity.limit(this.maxSpeed);
+            this.position.add(this.velocity);
+            this.acceleration.mult(0);
+            this.boundaries();
+        }
+        boundaries() { 
+            if (this.position.x < 0 || this.position.x > worldWidth || this.position.y < 0 || this.position.y > worldHeight) { 
+                this.daysActive = this.duration; // Effectively remove them if they go off-screen
+            } 
+        }
+        display() {
+            push();
+            fill(255, 100, 100);
+            stroke(255,0,0);
+            strokeWeight(2);
+            ellipse(this.position.x, this.position.y, this.size, this.size);
+            pop();
+        }
+    }
+
+    class Poacher extends Humanoid {
+        constructor(x, y, durationDays, targetType) {
+            super(x, y, durationDays);
+            this.targetType = targetType;
+        }
+        // Poachers just wander for now, they don't seek specific animals
+    }
+    
+    class Deforester extends Humanoid {
+        constructor(x, y, durationDays) {
+            super(x, y, durationDays);
+            this.searchRadius = 300;
+        }
+
+        applyBehaviors(plantsQT, treesQT) {
+            let closest = this.findClosest(plantsQT, treesQT);
+            if (closest) {
+                let force = this.seek(closest.position);
+                this.acceleration.add(force);
+            }
+        }
+
+        findClosest(plantsQT, treesQT) {
+            let searchArea = new Rectangle(this.position.x, this.position.y, this.searchRadius, this.searchRadius);
+            let nearbyPlants = plantsQT.query(searchArea);
+            let nearbyTrees = treesQT.query(searchArea);
+            let nearby = [...nearbyPlants, ...nearbyTrees];
+
+            let closest = null;
+            let closestDist = Infinity;
+            for (let p of nearby) {
+                let d = this.position.dist(p.userData.position);
+                if (d < closestDist) {
+                    closestDist = d;
+                    closest = p.userData;
+                }
+            }
+            return closest;
+        }
+    }
+
     // --- Simulation ---
-    function toggleSimulation() { isSimulating = !isSimulating; if(isSimulating) { document.getElementById('main-button').innerHTML = 'Stop Simulation'; resetSimulation(); loop(); } else { document.getElementById('main-button').innerHTML = 'Start Simulation'; noLoop(); } }
+    // Core logic for running the simulation.
+    function toggleSimulation() {
+        isSimulating = !isSimulating;
+        const triggerBtns = document.querySelectorAll('.trigger-button');
+        if (isSimulating) {
+            document.getElementById('main-button').innerHTML = 'Stop Simulation';
+            triggerBtns.forEach(btn => btn.disabled = false);
+            resetSimulation();
+            loop();
+        } else {
+            document.getElementById('main-button').innerHTML = 'Start Simulation';
+            triggerBtns.forEach(btn => btn.disabled = true);
+            noLoop();
+        }
+    }
     function resetSimulation() {
-        dayCounter=0; dayStartTime=millis(); weeklyHistory=[];
+        dayCounter=0; dayStartTime=millis(); dailyHistory=[];
+        disasterState = { isDrought: false, droughtDays: 0, droughtCenter: null, droughtRadius: 0, 
+                          isFire: false, fireDays: 0, fireCenter: null, fireRadius: 0,
+                          poachers: [], deforesters: [] };
         setWorldSize();
         populations = { plants:[], butterflies:[], frogs:[], snakes:[], hawks:[] };
         const createPopulation=(arr,Cls,count)=>{for(let i=0;i<count;i++){let pos=getSafeSpawnPoint();arr.push(new Cls(pos.x,pos.y,i%2===0?'male':'female'));}};
@@ -317,268 +499,354 @@
         generateEnvironment();
     }
     function runSimulationStep() {
-        let qTrees = { hidingSpots: new QuadTree(new Rectangle(worldWidth/2,worldHeight/2,worldWidth/2,worldHeight/2), 4) };
-        for (const item of backgroundTrees) qTrees.hidingSpots.insert(new Point(item.position.x, item.position.y, item));
+        let qTrees = { hidingSpots: new QuadTree(new Rectangle(worldWidth/2,worldHeight/2,worldWidth/2,worldHeight/2), 4),
+                       backgroundTrees: new QuadTree(new Rectangle(worldWidth/2,worldHeight/2,worldWidth/2,worldHeight/2), 4) };
+        for (const item of backgroundTrees) {
+            let p = new Point(item.position.x, item.position.y, item);
+            qTrees.hidingSpots.insert(p);
+            qTrees.backgroundTrees.insert(p);
+        }
         for (const key in populations) { qTrees[key] = new QuadTree(new Rectangle(worldWidth/2,worldHeight/2,worldWidth/2,worldHeight/2), 4); for(const item of populations[key]) qTrees[key].insert(new Point(item.position.x, item.position.y, item)); }
+        
         const findMates = (arr,self) => arr.filter(a => a.gender!==self.gender && a.isReadyToMate());
+        
+        let allPredators = [ ...populations.frogs, ...populations.snakes, ...populations.hawks, ...disasterState.poachers ];
+
         populations.butterflies.forEach(o => {o.applyBehaviors(qTrees.plants, qTrees.frogs, findMates(populations.butterflies,o), qTrees.hidingSpots); o.update();});
         populations.frogs.forEach(o => {o.applyBehaviors(qTrees.butterflies, qTrees.snakes, findMates(populations.frogs,o), qTrees.hidingSpots); o.update();});
         populations.snakes.forEach(o => {o.applyBehaviors(qTrees.frogs, qTrees.hawks, findMates(populations.snakes,o), qTrees.hidingSpots); o.update();});
         populations.hawks.forEach(o => {o.applyBehaviors(qTrees.snakes, null, findMates(populations.hawks,o), qTrees.hidingSpots); o.update();});
+    
+        // Update disaster agents
+        disasterState.poachers.forEach(p => p.update());
+        disasterState.deforesters.forEach(d => {
+            d.applyBehaviors(qTrees.plants, qTrees.backgroundTrees);
+            d.update();
+        });
     }
     
     function handleInteractions() {
-        const predation = (predators, prey, predatorName, preyName) => { 
-            for(let i=predators.length-1;i>=0;i--){
-                if(!predators[i].isHungry()||predators[i].isHiding()) continue;
-                for(let j=prey.length-1;j>=0;j--){
-                    if(predators[i].position.dist(prey[j].position)<(predators[i].size+prey[j].size)/2){
-                        // Add specific logging for when a frog is eaten
-                        if (preyName === "Frog") {
-                            console.log(`A frog was eaten by a snake on day ${dayCounter}.`);
-                        }
-                        prey.splice(j,1);
-                        predators[i].eat();
-                        break; 
+        const predation = (predators, prey) => {
+            for (let i = predators.length - 1; i >= 0; i--) {
+                if (!predators[i].isHungry() || predators[i].isHiding()) {
+                    continue;
+                }
+                for (let j = prey.length - 1; j >= 0; j--) {
+                    if (predators[i].position.dist(prey[j].position) < (predators[i].size + prey[j].size) / 2) {
+                        prey.splice(j, 1);
+                        if (predators[i].eat) { predators[i].eat(); }
+                        break;
                     }
                 }
             }
         };
-        predation(populations.frogs, populations.butterflies, "Frog", "Butterfly");
-        predation(populations.snakes, populations.frogs, "Snake", "Frog");
-        predation(populations.hawks, populations.snakes, "Hawk", "Snake");
+        predation(populations.frogs, populations.butterflies);
+        predation(populations.snakes, populations.frogs);
+        predation(populations.hawks, populations.snakes);
+
+        // Disaster Interactions
+        handleDisasterInteractions();
     }
 
     const MATING_DISTANCE_THRESHOLD = 200;
 
-    /**
-     * Simulates reproduction for a given animal population.
-     * @param {Array} population - The array of animals to process.
-     * @param {class} AnimalClass - The class constructor (e.g., Butterfly, Frog) for creating offspring.
-     * @returns {void} - This function mutates the original population array.
-     */
     const simulateReproduction = (population, AnimalClass) => {
-        // 1. Find all animals that are ready to mate
         const readyMales = population.filter(animal => animal.gender === 'male' && animal.isReadyToMate());
         const readyFemales = population.filter(animal => animal.gender === 'female' && animal.isReadyToMate());
-
-        // 2. Determine the maximum number of pairs
         const numberOfPairings = Math.min(readyMales.length, readyFemales.length);
         const newOffspring = [];
-        
-        // 3. Create pairs and check if they can reproduce
         for (let i = 0; i < numberOfPairings; i++) {
             const male = readyMales[i];
             const female = readyFemales[i];
-            
-            // Check if the pair is close enough to mate
             if (male.position.dist(female.position) < MATING_DISTANCE_THRESHOLD) {
                 const spawnPoint = getSafeSpawnPoint();
                 const gender = Math.random() > 0.5 ? 'male' : 'female';
-
-                // Create a new "baby" animal
                 newOffspring.push(new AnimalClass(spawnPoint.x, spawnPoint.y, gender));
-
-                // Reduce the parents' urge to mate
                 male.matingUrge -= 50;
                 female.matingUrge -= 50;
             }
         }
-        
-        // Log the results of the reproduction cycle for this species
-        if (newOffspring.length > 0) {
-            console.log(`${AnimalClass.name}s: ${newOffspring.length * 2} animals mated, producing ${newOffspring.length} new offspring.`);
-        }
-
-        // 4. Add all new offspring to the main population array
         population.push(...newOffspring);
     };
 
-    /**
-     * Spawns new plants in the environment.
-     * @param {Array} plantPopulation - The array of plants.
-     * @param {number} count - The number of new plants to create.
-     */
     const spawnNewPlants = (plantPopulation, count) => {
+        if(disasterState.isDrought) count = Math.floor(count / 4); // Less plants grow during drought
         for (let i = 0; i < count; i++) {
             const spawnPoint = getSafeSpawnPoint();
             plantPopulation.push(new Plant(spawnPoint.x, spawnPoint.y));
         }
     };
 
-    // ===================================================================
-    //
-    // CONFIGURATION - Central place for simulation parameters
-    //
-    // ===================================================================
-
     const SIM_CONFIG = {
         PLANT_CULL_INTERVAL_DAYS: 30,
         PLANT_CULL_AMOUNT: 100,
-        PLANT_CULL_MINIMUM: 100,
-        HISTORY_LOGGING_INTERVAL_DAYS: 7,
-        NEW_PLANTS_PER_DAY: 5,
+        PLANT_CULL_MINIMUM: 100
     };
 
-    // A map to associate population keys with their corresponding classes
-    const animalClassMap = {
-        butterflies: Butterfly,
-        frogs: Frog,
-        snakes: Snake,
-        hawks: Hawk,
-    };
+    const animalClassMap = { butterflies: Butterfly, frogs: Frog, snakes: Snake, hawks: Hawk };
 
-    // ===================================================================
-    //
-    // HELPER FUNCTIONS - Each function has a single, clear purpose
-    //
-    // ===================================================================
-
-    /**
-     * Updates daily stats for each animal and removes any that have died of old age or starvation.
-     * @param {object} populations - The object containing all population arrays.
-     */
     function updateAndCullAnimals(populations) {
         for (const species of Object.keys(animalClassMap)) {
             const population = populations[species];
-            // Iterate backwards because we are removing items from the array
             for (let i = population.length - 1; i >= 0; i--) {
                 const animal = population[i];
-                animal.updateStats?.(); // Optional chaining: only call if updateStats exists
-
+                animal.updateStats?.(); 
                 const isTooOld = animal.age > animal.maxAge;
                 const hasStarved = animal.maxDaysWithoutFood && animal.daysWithoutFood > animal.maxDaysWithoutFood;
-
                 if (isTooOld || hasStarved) {
-                    // Check if the dying animal is a frog for specific logging
-                    if (species === 'frogs') {
-                        if (isTooOld) {
-                            console.log(`A frog has died of old age on day ${dayCounter}. Age: ${animal.age}`);
-                        }
-                        if (hasStarved) {
-                            console.log(`A frog has starved to death on day ${dayCounter}. Days without food: ${animal.daysWithoutFood}`);
-                        }
-                    }
-                    population.splice(i, 1); // Remove the dead animal
+                    population.splice(i, 1);
                 }
             }
         }
     }
 
-    /**
-     * Handles periodic tasks like culling excess plants and logging weekly history.
-     * @param {number} dayCounter - The current day of the simulation.
-     * @param {object} populations - The main populations object.
-     * @param {Array} weeklyHistory - The array to store history logs.
-     */
-    function performPeriodicTasks(dayCounter, populations, weeklyHistory) {
-        // Every 30 days, cull 100 plants if the population is over 100
-        if (dayCounter % SIM_CONFIG.PLANT_CULL_INTERVAL_DAYS === 0 && populations.plants.length > SIM_CONFIG.PLANT_CULL_MINIMUM) {
-            populations.plants.splice(0, SIM_CONFIG.PLANT_CULL_AMOUNT);
+    function logDailyHistory() {
+        const historyEntry = { day: dayCounter };
+        for (const species of Object.keys(animalClassMap)) {
+            historyEntry[species] = populations[species].length;
         }
-
-        // Every 7 days, log the population counts to the history
-        if (dayCounter > 0 && dayCounter % SIM_CONFIG.HISTORY_LOGGING_INTERVAL_DAYS === 0) {
-            const historyEntry = { week: dayCounter / SIM_CONFIG.HISTORY_LOGGING_INTERVAL_DAYS };
-            for (const species of Object.keys(animalClassMap)) {
-                historyEntry[species] = populations[species].length;
-            }
-            weeklyHistory.push(historyEntry);
-        }
+        dailyHistory.push(historyEntry);
     }
 
-    /**
-     * Checks if any animal species has gone extinct.
-     * @param {object} populations - The main populations object.
-     * @returns {string|null} The name of the first extinct species found, or null.
-     */
     function findExtinctSpecies(populations) {
         for (const species of Object.keys(animalClassMap)) {
             if (populations[species].length === 0) {
-                // Return the capitalized name, e.g., "butterflies" -> "Butterflies"
                 return species.charAt(0).toUpperCase() + species.slice(1);
             }
         }
         return null;
     }
 
-    /**
-     * Logs a summary of the current day's population counts to the console.
-     * @param {number} dayCounter
-     * @param {object} populations
-     */
-    function logDailySummary(dayCounter, populations) {
-        let summary = `Day ${dayCounter} End | Plants: ${populations.plants.length}`;
-        for (const species of Object.keys(animalClassMap)) {
-            summary += ` | ${species.charAt(0).toUpperCase() + species.slice(1)}: ${populations[species].length}`;
-        }
-        console.log(summary);
-    }
-
-    /**
-     * Handles the end of the simulation when a species goes extinct.
-     * @param {string} extinctSpecies - The name of the species that went extinct.
-     * @param {number} dayCounter - The current day.
-     */
     function handleExtinction(extinctSpecies, dayCounter) {
         if (isSimulating) {
             const infoDisplay = document.getElementById('info-display');
             infoDisplay.innerHTML = `Ecosystem collapsed on Day ${dayCounter}: ${extinctSpecies} went extinct.`;
-
-            if (shouldDownloadCSV) {
-                exportHistoryToCSV();
-            }
-            toggleSimulation(); // Stop the simulation
+            if (shouldDownloadCSV) { exportHistoryToCSV(); }
+            toggleSimulation();
         }
     }
-   
-    // ===================================================================
-    //
-    // MAIN SIMULATION FUNCTION - Now clean and easy to read
-    //
-    // ===================================================================
-
+    
     function endOfDay() {
         dayCounter++;
-
-        // 1. Update stats and remove dead animals
         updateAndCullAnimals(populations);
-
-        // 2. Handle reproduction for all species (using the previously improved functions)
         for (const [species, AnimalClass] of Object.entries(animalClassMap)) {
-            if (populations[species]) {
-                simulateReproduction(populations[species], AnimalClass);
+            if (populations[species]) { simulateReproduction(populations[species], AnimalClass); }
+        }
+        spawnNewPlants(populations.plants, SIM_CONFIG.NEW_PLANTS_PER_DAY);
+        
+        if (dayCounter % SIM_CONFIG.PLANT_CULL_INTERVAL_DAYS === 0 && populations.plants.length > SIM_CONFIG.PLANT_CULL_MINIMUM) {
+            populations.plants.splice(0, SIM_CONFIG.PLANT_CULL_AMOUNT);
+        }
+
+        logDailyHistory();
+        
+        checkForDisasters();
+        updateDisasters();
+
+        const extinctSpecies = findExtinctSpecies(populations);
+        if (extinctSpecies) { handleExtinction(extinctSpecies, dayCounter); }
+    }
+    
+    // --- DISASTER LOGIC ---
+    let disasterConfig = {};
+    let disasterState = {
+        isDrought: false,
+        droughtDays: 0,
+        droughtCenter: null,
+        droughtRadius: 0,
+        isFire: false,
+        fireDays: 0,
+        fireCenter: null,
+        fireRadius: 0,
+        poachers: [],
+        deforesters: [],
+    };
+
+    function checkForDisasters() {
+        if (random() * 100 < disasterConfig.drought.chance) startDrought();
+        if (random() * 100 < disasterConfig.fire.chance) startFire();
+        if (random() * 100 < disasterConfig.poaching.chance) startPoaching();
+        if (random() * 100 < disasterConfig.deforestation.chance) startDeforestation();
+    }
+
+    function startDrought() {
+        if(disasterState.isDrought) return;
+        disasterState.isDrought = true;
+        disasterState.droughtDays = 15;
+        disasterState.droughtCenter = createVector(random(worldWidth), random(worldHeight));
+        disasterState.droughtRadius = (max(worldWidth, worldHeight) / 2) * (disasterConfig.drought.area / 100);
+        
+        // Remove ponds within the drought area
+        for (let i = ponds.length - 1; i >= 0; i--) {
+            if (disasterState.droughtCenter.dist(ponds[i].position) < disasterState.droughtRadius) {
+                ponds.splice(i, 1);
+            }
+        }
+    }
+
+    function startFire() {
+        if(disasterState.isFire) return;
+        disasterState.isFire = true;
+        disasterState.fireDays = simMode === 'hyper' ? 20 : 5; // Longer duration in hyper mode
+        disasterState.fireCenter = createVector(random(worldWidth), random(worldHeight));
+        disasterState.fireRadius = disasterConfig.fire.size;
+    }
+
+    function startPoaching() {
+        const numPoachers = disasterConfig.poaching.num;
+        let duration = disasterConfig.poaching.duration;
+        if (simMode === 'hyper') duration *= 4;
+        const targetOptions = ['frogs', 'snakes', 'hawks'];
+        const targetType = random(targetOptions);
+        for (let i = 0; i < numPoachers; i++) {
+            disasterState.poachers.push(new Poacher(random(worldWidth), random(worldHeight), duration, targetType));
+        }
+    }
+
+    function startDeforestation() {
+        const numDeforesters = disasterConfig.deforestation.num;
+        let duration = disasterConfig.deforestation.duration;
+        if (simMode === 'hyper') duration *= 4;
+        for (let i = 0; i < numDeforesters; i++) {
+            disasterState.deforesters.push(new Deforester(random(worldWidth), random(worldHeight), duration));
+        }
+    }
+
+    function updateDisasters() {
+        // Drought
+        if (disasterState.isDrought) {
+            disasterState.droughtDays--;
+            if (disasterState.droughtDays <= 0) disasterState.isDrought = false;
+        }
+
+        // Fire
+        if (disasterState.isFire) {
+            disasterState.fireDays--;
+            const maxFireRadius = min(worldWidth, worldHeight) / 2;
+            disasterState.fireRadius = min(disasterState.fireRadius + 1, maxFireRadius);
+            if (disasterState.fireDays <= 0) disasterState.isFire = false;
+        }
+        
+        // Poachers & Deforesters
+        disasterState.poachers.forEach(p => p.daysActive++);
+        disasterState.deforesters.forEach(d => d.daysActive++);
+        disasterState.poachers = disasterState.poachers.filter(p => p.daysActive < p.duration);
+        disasterState.deforesters = disasterState.deforesters.filter(d => d.daysActive < d.duration);
+    }
+    
+    function handleDisasterInteractions() {
+        // Poaching
+        for (const poacher of disasterState.poachers) {
+            const targetPop = populations[poacher.targetType];
+            if (!targetPop) continue;
+            for (let i = targetPop.length - 1; i >= 0; i--) {
+                if (poacher.position.dist(targetPop[i].position) < poacher.size) {
+                    targetPop.splice(i, 1);
+                    break; // Poacher gets one animal per frame
+                }
             }
         }
 
-        // 3. Spawn new plants
-        spawnNewPlants(populations.plants, SIM_CONFIG.NEW_PLANTS_PER_DAY);
+        // Deforestation
+        for (const deforester of disasterState.deforesters) {
+            // Destroy trees on contact
+            for (let i = backgroundTrees.length - 1; i >= 0; i--) {
+                const tree = backgroundTrees[i];
+                if (deforester.position.dist(tree.position) < (deforester.size + tree.size) / 2) {
+                    backgroundTrees.splice(i, 1);
+                }
+            }
+            // Destroy plants on contact
+             for (let i = populations.plants.length - 1; i >= 0; i--) {
+                const plant = populations.plants[i];
+                if (deforester.position.dist(plant.position) < (deforester.size + plant.size) / 2) {
+                    populations.plants.splice(i, 1);
+                }
+            }
+        }
 
-        // 4. Handle infrequent tasks (plant culling, history logging)
-        performPeriodicTasks(dayCounter, populations, weeklyHistory);
-
-        // 5. Log daily status to the console
-        logDailySummary(dayCounter, populations);
-
-        // 6. Check for extinction and end the simulation if necessary
-        const extinctSpecies = findExtinctSpecies(populations);
-        if (extinctSpecies) {
-            handleExtinction(extinctSpecies, dayCounter);
+        // Fire
+        if (disasterState.isFire) {
+            const fire = disasterState;
+            // Burn animals
+            for (const species of Object.keys(animalClassMap)) {
+                const population = populations[species];
+                for (let i = population.length - 1; i >= 0; i--) {
+                    const animal = population[i];
+                    if (dist(fire.fireCenter.x, fire.fireCenter.y, animal.position.x, animal.position.y) < fire.fireRadius) {
+                        population.splice(i, 1);
+                    }
+                }
+            }
+            // Burn plants
+            for (let i = populations.plants.length - 1; i >= 0; i--) {
+                const plant = populations.plants[i];
+                if (dist(fire.fireCenter.x, fire.fireCenter.y, plant.position.x, plant.position.y) < fire.fireRadius) {
+                    populations.plants.splice(i, 1);
+                }
+            }
+            // Burn trees
+            for (let i = backgroundTrees.length - 1; i >= 0; i--) {
+                const tree = backgroundTrees[i];
+                if (dist(fire.fireCenter.x, fire.fireCenter.y, tree.position.x, tree.position.y) < fire.fireRadius) {
+                    backgroundTrees.splice(i, 1);
+                }
+            }
         }
     }
 
 
-    
     // --- UI & Data Export ---
     let initialInputs = {};
     function initializeUI() {
         document.getElementById('main-button').addEventListener('click', toggleSimulation);
+        
+        const triggerBtns = document.querySelectorAll('.trigger-button');
+        triggerBtns.forEach(btn => btn.disabled = true);
+
+        document.getElementById('trigger-drought').addEventListener('click', startDrought);
+        document.getElementById('trigger-fire').addEventListener('click', startFire);
+        document.getElementById('trigger-poaching').addEventListener('click', startPoaching);
+        document.getElementById('trigger-deforestation').addEventListener('click', startDeforestation);
+
         document.getElementById('mode-toggle').addEventListener('change', (e) => { simMode=e.target.checked?'hyper':'normal'; updateControlsView(); });
         document.getElementById('day-length-slider').addEventListener('input', (e) => { dayLengthMillis=e.target.value*1000; document.getElementById('day-length-value').innerHTML=e.target.value; speedMultiplier=10/e.target.value; });
         speedMultiplier=10/document.getElementById('day-length-slider').value;
         document.getElementById('status-toggle').addEventListener('click', (e) => { showStatusBars=!showStatusBars; e.target.classList.toggle('active',showStatusBars); e.target.innerHTML=showStatusBars?'Hide Status':'Show Status'; });
         document.getElementById('trees-toggle').addEventListener('click', (e) => { showBgTrees=!showBgTrees; e.target.classList.toggle('active',showBgTrees); e.target.innerHTML=showBgTrees?'Hide Trees':'Show Trees'; });
         initialInputs={plants:document.getElementById('initial-plants'),butterflies:document.getElementById('initial-butterflies'),frogs:document.getElementById('initial-frogs'),snakes:document.getElementById('initial-snakes'),hawks:document.getElementById('initial-hawks')};
+        
+        disasterConfig = {
+            drought: {
+                chance: document.getElementById('drought-chance').value,
+                area: document.getElementById('drought-area').value
+            },
+            fire: {
+                chance: document.getElementById('fire-chance').value,
+                size: document.getElementById('fire-size').value
+            },
+            poaching: {
+                chance: document.getElementById('poaching-chance').value,
+                num: document.getElementById('poaching-num').value,
+                duration: document.getElementById('poaching-duration').value
+            },
+            deforestation: {
+                chance: document.getElementById('deforestation-chance').value,
+                num: document.getElementById('deforestation-num').value,
+                duration: document.getElementById('deforestation-duration').value
+            }
+        };
+
+        document.getElementById('drought-chance').addEventListener('input', (e) => disasterConfig.drought.chance = e.target.value);
+        document.getElementById('drought-area').addEventListener('input', (e) => disasterConfig.drought.area = e.target.value);
+        document.getElementById('fire-chance').addEventListener('input', (e) => disasterConfig.fire.chance = e.target.value);
+        document.getElementById('fire-size').addEventListener('input', (e) => disasterConfig.fire.size = e.target.value);
+        document.getElementById('poaching-chance').addEventListener('input', (e) => disasterConfig.poaching.chance = e.target.value);
+        document.getElementById('poaching-num').addEventListener('input', (e) => disasterConfig.poaching.num = e.target.value);
+        document.getElementById('poaching-duration').addEventListener('input', (e) => disasterConfig.poaching.duration = e.target.value);
+        document.getElementById('deforestation-chance').addEventListener('input', (e) => disasterConfig.deforestation.chance = e.target.value);
+        document.getElementById('deforestation-num').addEventListener('input', (e) => disasterConfig.deforestation.num = e.target.value);
+        document.getElementById('deforestation-duration').addEventListener('input', (e) => disasterConfig.deforestation.duration = e.target.value);
     }
     
     function updateControlsView() {
@@ -589,16 +857,31 @@
     function updateInfoDisplay() {
         const infoEl=document.getElementById('info-display'); if(!infoEl)return; if(!isSimulating&&infoEl.innerHTML.includes("collapsed"))return;
         let p=populations,counts=`🌿:${p.plants.length} | 🦋:${p.butterflies.length} | 🐸:${p.frogs.length} | 🐍:${p.snakes.length} | 🦅:${p.hawks.length}`;
-        if(simMode==='hyper'&&isSimulating){const total=parseInt(document.getElementById('years-input').value)*365;infoEl.innerHTML=`Simulating Day: ${dayCounter}/${total} | ${counts}`;}else{infoEl.innerHTML=`Day: ${dayCounter} | ${counts}`;}}
+        let disasterText = "";
+        if (disasterState.isDrought) disasterText += " DROUGHT!";
+        if (disasterState.isFire) disasterText += " FIRE!";
+        if (disasterState.poachers.length > 0) disasterText += " POACHING!";
+        if (disasterState.deforesters.length > 0) disasterText += " DEFORESTATION!";
+        
+        if (simMode === 'hyper' && isSimulating) {
+            const durationValue = parseInt(document.getElementById('duration-input').value);
+            const durationUnit = document.getElementById('duration-unit').value;
+            const totalDays = durationUnit === 'years' ? durationValue * 365 : durationValue;
+            infoEl.innerHTML = `Simulating Day: ${dayCounter}/${totalDays} | ${counts}`;
+        } else {
+            infoEl.innerHTML = `Day: ${dayCounter} | ${counts}`;
+        }
+        infoEl.innerHTML += `<span style="color: var(--disaster-red);">${disasterText}</span>`;
+    }
 
     function exportHistoryToCSV() {
-        let csv="data:text/csv;charset=utf-8,Week,Butterflies,Frogs,Snakes,Hawks\n";
-        weeklyHistory.forEach(r=>{csv+=`${r.week},${r.butterflies},${r.frogs},${r.snakes},${r.hawks}\n`;});
+        let csv="data:text/csv;charset=utf-8,Day,Butterflies,Frogs,Snakes,Hawks\n";
+        dailyHistory.forEach(r=>{csv+=`${r.day},${r.butterflies},${r.frogs},${r.snakes},${r.hawks}\n`;});
         const link=document.createElement("a");link.setAttribute("href",encodeURI(csv));link.setAttribute("download","population_history.csv");document.body.appendChild(link);link.click();document.body.removeChild(link);
     }
     
     // --- Sketch & Camera ---
-    let isSimulating=false,dayCounter=0,dayStartTime,populations={plants:[],butterflies:[],frogs:[],snakes:[],hawks:[]},simMode='normal',dayLengthMillis=10000,speedMultiplier=1,showStatusBars=false, showBgTrees=true, weeklyHistory=[],ponds=[],backgroundTrees=[],riverPoints=[];
+    let isSimulating=false,dayCounter=0,dayStartTime,populations={plants:[],butterflies:[],frogs:[],snakes:[],hawks:[]},simMode='normal',dayLengthMillis=10000,speedMultiplier=1,showStatusBars=false, showBgTrees=true, dailyHistory=[],ponds=[],backgroundTrees=[],riverPoints=[];
     let worldWidth, worldHeight;
     let camera = { x: 0, y: 0, zoom: 1 };
     let panStart = { x: 0, y: 0 };
@@ -630,7 +913,7 @@
 
     function screenToWorld(x, y) { return { x: (x - width / 2) / camera.zoom + camera.x, y: (y - height / 2) / camera.zoom + camera.y }; }
     function generateEnvironment() {
-        let numPonds, numTrees;
+        let numPonds;
         noiseSeed(millis());
         
         if (worldWidth === 1200) { numPonds = floor(random(1, 2)); }
@@ -655,6 +938,27 @@
     }
     
     function drawEnvironment() {
+        // Draw normal ground
+        background(10, 50, 10);
+        
+        // Draw drought area
+        if (disasterState.isDrought) {
+            push();
+            fill(139, 69, 19, 150); // Brown, semi-transparent
+            noStroke();
+            ellipse(disasterState.droughtCenter.x, disasterState.droughtCenter.y, disasterState.droughtRadius * 2, disasterState.droughtRadius * 2);
+            pop();
+        }
+
+        // Draw fire area
+        if (disasterState.isFire) {
+            push();
+            fill(255, 0, 0, 100); // Red, semi-transparent
+            noStroke();
+            ellipse(disasterState.fireCenter.x, disasterState.fireCenter.y, disasterState.fireRadius * 2, disasterState.fireRadius * 2);
+            pop();
+        }
+
         ponds.forEach(p => { 
             push();
             translate(p.position.x, p.position.y);
@@ -680,12 +984,13 @@
     }
 
     function draw() {
-        background(10, 50, 10);
+        // Background is now handled in drawEnvironment to layer drought correctly
         
         translate(width/2, height/2); scale(camera.zoom); translate(-camera.x, -camera.y);
         
-        noFill(); stroke(100); strokeWeight(2/camera.zoom); rect(0,0,worldWidth,worldHeight);
         drawEnvironment();
+        
+        noFill(); stroke(100); strokeWeight(2/camera.zoom); rect(0,0,worldWidth,worldHeight);
         
         if(isSimulating) {
             if (simMode === 'normal') {
@@ -693,7 +998,9 @@
                 const timeElapsed = millis() - dayStartTime;
                 if (timeElapsed > dayLengthMillis) { handleInteractions(); endOfDay(); dayStartTime = millis(); }
             } else { 
-                const totalDays = parseInt(document.getElementById('years-input').value) * 365;
+                const durationValue = parseInt(document.getElementById('duration-input').value);
+                const durationUnit = document.getElementById('duration-unit').value;
+                const totalDays = durationUnit === 'years' ? durationValue * 365 : durationValue;
                 for(let i=0; i < 10; i++) { // Run 10 days per frame for speed
                     if(dayCounter >= totalDays || !isSimulating) { if(isSimulating) toggleSimulation(); break; }
                     runSimulationStep(); handleInteractions(); endOfDay();
@@ -702,6 +1009,11 @@
         }
         
         Object.values(populations).flat().forEach(o=>o.display());
+        disasterState.poachers.forEach(p => p.display());
+        disasterState.deforesters.forEach(d => d.display());
+
+        // Must be drawn after everything else so it's on top
+        resetMatrix();
         updateInfoDisplay();
     }
 
